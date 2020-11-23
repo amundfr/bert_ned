@@ -1,0 +1,10 @@
+numpy>=1.19.4
+polyaxon-cli==0.6.1
+polyaxon-client==0.6.1
+polyaxon-deploy==0.6.1
+polyaxon-dockerizer==0.1.0
+polyaxon-schemas==0.6.1
+polystores==0.2.5
+torch==1.7.0
+transformers==3.5.1
+tensorboard==2.3.0
