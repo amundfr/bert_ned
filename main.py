@@ -1,8 +1,24 @@
+import logging
+import itertools
 import transformers
 import numpy as np
+import torch
+
+from sys import version
 from torch.utils.tensorboard import SummaryWriter
 
-writer = SummaryWriter('runs/testing_tensorboard_pt')
+import tensorflow as tf
+import tensorboard as tb
+tf.io.gfile = tb.compat.tensorflow_stub.io.gfile
+
+# embedding1 = torch.nn.Embedding(5, 50)
+# embedding2 = torch.nn.Embedding(5, 50)
+
+# logger = logging.getLogger()
+# logger.setLevel(logging.DEBUG)
+# logger.info(f'Python version: {version}')
+
+writer = SummaryWriter('runs/bert_embeddings')
 model = transformers.BertModel.from_pretrained('bert-base-uncased')
 
 tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-uncased')
@@ -24,4 +40,3 @@ writer.add_embedding(token_type_embedding,
                      tag = 'tokentype embeddings')
 
 writer.close()
-
