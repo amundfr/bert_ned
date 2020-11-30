@@ -1,24 +1,24 @@
-import logging
-import itertools
+import sys
 import transformers
 import numpy as np
 import torch
-
-from sys import version
 from torch.utils.tensorboard import SummaryWriter
 
+# https://github.com/pytorch/pytorch/issues/30966
 import tensorflow as tf
 import tensorboard as tb
 tf.io.gfile = tb.compat.tensorflow_stub.io.gfile
 
-# embedding1 = torch.nn.Embedding(5, 50)
-# embedding2 = torch.nn.Embedding(5, 50)
+args = sys.argv
+if len(args) > 2:
+  print("Too many args. Correct usage: python main.py /path/for/output")
+  sys.exit(1)
+if len(args) == 2:
+  output_path = args[1]
+else:
+  output_path = 'runs/bert_embeddings'
+writer = SummaryWriter(output_path)
 
-# logger = logging.getLogger()
-# logger.setLevel(logging.DEBUG)
-# logger.info(f'Python version: {version}')
-
-writer = SummaryWriter('runs/bert_embeddings')
 model = transformers.BertModel.from_pretrained('bert-base-uncased')
 
 tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-uncased')
