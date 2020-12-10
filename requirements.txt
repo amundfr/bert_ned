@@ -9,3 +9,6 @@ torch==1.7.0
 transformers==3.5.1
 tensorboard==2.3.0
 tensorflow-gpu==2.3.1
+bert
+tensorflow_hub
+plotly==4.13.0
