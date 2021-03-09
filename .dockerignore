@@ -1,0 +1,8 @@
+__pycache__
+data
+lib/wiki_entity_linker
+models
+old_proj
+.git
+.idea
+Dockerfile
