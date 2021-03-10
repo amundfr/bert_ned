@@ -114,6 +114,9 @@ def dataset_generation(config: ConfigParser):
 
 train_loader, val_loader, test_loader = dataset_generation(config)
 neg, pos = dataset_generator.get_dataset_balance_info()
+# These two are needed to take accuracy over entities, rather than over candidates
+dataset_to_doc = dataset_generator.balanced_dataset_to_doc
+dataset_to_entity = dataset_generator.balanced_dataset_to_entity
 dataset_generator = None
 
 # --------------------------------------------------
@@ -122,7 +125,7 @@ dataset_generator = None
 def model_generation(config: ConfigParser):
     model_dir = config['BERT']['Bert Model Dir']
     model = load_bert_from_file(model_dir)
-    # TODO: Make some rigorous tests of the use of class weights
+    # TODO: test use of class weights on accuracy performance
     model.set_class_weights(get_class_weights_tensor(1, 1))
     return model
 

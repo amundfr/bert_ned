@@ -5,6 +5,7 @@ import torch
 import matplotlib.pyplot as plt
 
 from os.path import isdir, join
+from collections import Counter
 from src.bert_model import BertBinaryClassification
 from transformers import AdamW, get_cosine_schedule_with_warmup
 from torch.utils.data import DataLoader
@@ -21,10 +22,55 @@ def format_time(elapsed):
     return str(datetime.timedelta(seconds=elapsed_rounded))
 
 
-def accuracy(preds, labels):
+def accuracy_over_entities(preds, labels, docs, entities):
     """
     Calculate the accuracy of a classification prediction
-    with the argmax of the preds
+    over entities, using the argmax of the preds.
+
+    This is achieved by grouping by entities, and choosing the strongest (if any)
+    positive prediction as the only prediction of the True label.
+
+    :param preds: logit predictions from the model
+    :param labels: the correct true/false labels for each candidate/data point
+    :param docs: list of the docs that the data points come from, to group data points
+    :param entities: list of the entities that the data points belong to, 
+        for grouping into accuracy over entities rather than candidates
+    :returns: a scalar accuracy for this batch, averaged over entities
+    """
+    assert len(preds) == len(labels)
+    assert len(preds) == len(docs)
+    assert len(preds) == len(entities)
+
+    # Counts number of data points for each candidate, 
+    #  identified by doc ID + entity ID
+    ctr = Counter(zip(docs, entities))
+    n = len(ctr)
+    
+    # Iterate the lists entity by entity:
+    tot_accuracy = 0
+    i = 0
+    while i < len(preds):
+        key = (docs[i], entities[i])
+        n_data_points = ctr[key]
+        entity_preds = preds[i:i+n_data_points]
+        entity_labels = labels[i:i+n_data_points]
+        # TODO: Pick the top True, or pick all that are True?
+        pred_true = np.argmax(entity_preds, axis=0)[1]
+        pred = np.eye(n_data_points)[pred_true]
+        entity_accuracy = np.sum(pred == entity_labels.flatten()) / n_data_points
+        tot_accuracy += entity_accuracy
+        i += n_data_points
+    return tot_accuracy / n
+    
+
+def accuracy_over_candidates(preds, labels):
+    """
+    Calculate the accuracy of a classification prediction
+    over candidates ("naïvely"), using the argmax of the preds.
+
+    :param preds: logit predictions from the model
+    :param labels: the correct true/false labels for each data point
+    :returns: a scalar accuracy for this batch, averaged over candidates
     """
     # TODO: Make this operate on Tensors
     pred_classes = np.argmax(preds, axis=1).flatten()
@@ -109,7 +155,9 @@ class ModelTrainer:
 
         # Reset the total loss for this epoch.
         total_loss = 0
-        total_accuracy = 0
+        # Used if in evaluation mode (type 'validation' or 'test')
+        epoch_logits = np.ndarray((0,2))
+        epoch_labels = np.ndarray((0,1))
         if type == 'train':
             # Put the model into training mode
             self.model.train()
@@ -168,13 +216,8 @@ class ModelTrainer:
             # Add to epoch loss
             total_loss += loss.item()
 
-            # Find prediction accuracy, if evaluating
-            if find_accuracy:
-                _logits = logits.detach().cpu().numpy()
-                label_ids = b_labels.to('cpu').numpy()
-                total_accuracy += accuracy(_logits, label_ids)
-            # Otherwise, make a training step
-            else:
+            # Take a training step, if training
+            if type == 'train':
                 # Perform a backward pass to calculate the gradients
                 loss.backward()
 
@@ -187,8 +230,17 @@ class ModelTrainer:
                 # Tell the scheduler to update the learning rate
                 self.scheduler.step()
 
+            # If evaluating, get predictions and labels
+            else:
+                _logits = logits.detach().cpu().numpy()
+                label_ids = b_labels.to('cpu').numpy()
+                epoch_logits = np.append(epoch_logits, _logits, axis=0)
+                epoch_labels = np.append(epoch_labels, label_ids, axis=0)
+                 # TODO Remove next two:
+                epoch_duration = time.time()-t0
+                return total_loss, epoch_duration, epoch_logits, epoch_labels
         epoch_duration = time.time()-t0
-        return total_loss, total_accuracy, epoch_duration
+        return total_loss, epoch_duration, logits, labels
 
     def train(self, train_update_freq: int = 50, valdation_update_freq: int = 50):
         """
@@ -218,7 +270,7 @@ class ModelTrainer:
             # Measure how long the training epoch takes.
             t0 = time.time()
 
-            total_train_loss, _, training_duration = self.run_epoch('train', train_update_freq)
+            total_train_loss, training_duration, _, _ = self.run_epoch('train', train_update_freq)
 
             # Calculate the average loss over all of the batches.
             avg_train_loss = total_train_loss / len(self.train_dataloader)
@@ -235,13 +287,13 @@ class ModelTrainer:
 
             t0 = time.time()
 
-            total_eval_accuracy = 0
-            total_eval_loss, total_eval_accuracy, eval_duration = self.run_epoch('validation', val_update_freq)
+            total_eval_loss, eval_duration, val_logits, val_labels = self.run_epoch('validation', validation_update_freq)
 
             validation_duration = format_time(eval_duration)
 
             # Report the final accuracy for this validation run.
-            avg_val_accuracy = total_eval_accuracy / len(self.validation_dataloader)
+            # total_eval_accuracy = 0
+            avg_val_accuracy = accuracy(logits, labels, docs_entities)
             print("  Accuracy: {0:.4f}".format(avg_val_accuracy))
 
             # Calculate the average loss over all of the batches.
@@ -302,10 +354,14 @@ class ModelTrainer:
         """
         print("Running Testing...")
 
-        total_loss, total_accuracy, test_duration = self.run_epoch('test', test_update_freq)
+        total_loss, test_duration, logits, labels = self.run_epoch('test', test_update_freq)
 
+        testdata_start = len(self.train_dataloader.dataset.indices) + \
+                         len(self.validation_dataloader.dataset.indices)
+        docs = dataset_to_docs[testdata_start:testdata_start+len(labels)]
+        entities = dataset_to_entities[testdata_start:testdata_start+len(labels)]
         # Average accuracy over batches
-        avg_accuracy = total_accuracy / len(self.test_dataloader)
+        avg_accuracy = accuracy_over_entities(logits, labels, docs, entities)
 
         # Average loss over batches.
         avg_loss = total_loss / len(self.test_dataloader)
