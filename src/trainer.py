@@ -238,7 +238,7 @@ class ModelTrainer:
                 epoch_labels = np.append(epoch_labels, label_ids, axis=0)
 
         epoch_duration = time.time()-t0
-        return total_loss, epoch_duration, logits, labels
+        return total_loss, epoch_duration, epoch_logits, epoch_labels
 
     def train(self, train_update_freq: int = 50, valdation_update_freq: int = 50):
         """
