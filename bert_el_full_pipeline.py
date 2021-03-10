@@ -134,9 +134,12 @@ model = model_generation(config)
 def training(config: ConfigParser):
     epochs = int(config['TRAINING']['Epochs'])
     save_dir = config['BERT']['Save Model Dir']
+    train_update_freq = int(config['VERBOSITY']['Training Update Frequency'])
+    validation_update_freq = int(config['VERBOSITY']['Validation Update Frequency'])
+    test_update_freq = int(config['VERBOSITY']['Test Update Frequency'])
     handler = ModelTrainer(model, device, train_loader, val_loader, test_loader, epochs)
-    training_stats = handler.train()
-    handler.test()
+    training_stats = handler.train(train_update_freq, validation_update_freq)
+    handler.test(dataset_to_doc, dataset_to_entity, test_update_freq)
     plot_training_stats(training_stats)
     save_bert_to_file(model, save_dir)
 

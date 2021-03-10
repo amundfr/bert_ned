@@ -190,7 +190,11 @@ class ModelTrainer:
         epoch_duration = time.time()-t0
         return total_loss, total_accuracy, epoch_duration
 
-    def train(self):
+    def train(self, train_update_freq: int = 50, valdation_update_freq: int = 50):
+        """
+        :param test_update_freq: how many training batches to run before printing feedback
+        :param validation_update_freq: how many validation batches to run before printing feedback
+        """
         # Holds some metrics on the duration and result of the training and validation
         training_stats = []
 
@@ -200,10 +204,6 @@ class ModelTrainer:
         # If validation accuracy doesn't improve by more than this threshold,
         # early stopping is triggered
         early_stopping_threshold = 0.001
-
-        # Frequency of progress feedback in number of steps
-        val_update_freq = 40
-        train_update_freq = 50
 
         print(f"\n   Training starts at {time.ctime(total_t0)}\n")
 
@@ -292,10 +292,14 @@ class ModelTrainer:
         return training_stats
 
 
-    def test(self):
-        # Frequency of feedback in number of batches
-        test_update_freq = 40
-
+    def test(self, dataset_to_docs, dataset_to_entities, test_update_freq: int = 50):
+        """
+        :param dataset_to_docs: A list of doc "IDs" 
+            for the total (i.e. not split) dataset.
+        :param dataset_to_entities: A list of entity "IDs" 
+            for the total (i.e. not split) dataset.
+        :param test_update_freq: how many batches to run before printing feedback
+        """
         print("Running Testing...")
 
         total_loss, total_accuracy, test_duration = self.run_epoch('test', test_update_freq)
