@@ -31,11 +31,10 @@ ACT2LAYER = {
 class BertBinaryClassification(BertPreTrainedModel):
     def __init__(self, config, use_cls=True):
         """
-    :param config: a transformers Config object
-    :param use_cls: wether to use the CLS token for classification,
-                    or the hidden state of the last layer.
-    """
-
+        :param config: a transformers Config object
+        :param use_cls: wether to use the CLS token for classification,
+                        or the hidden state of the last layer.
+        """
         self.num_labels = 2
         super().__init__(config, num_labels=self.num_labels)
 

@@ -56,7 +56,7 @@ def plot_training_stats(training_stats, save_to_dir: str = None):
     ax_2.plot(x_, tr_loss)
     ax_2.grid()
 
-    if isdir(save_to_dir):
+    if save_to_dir and isdir(save_to_dir):
         fig_1.savefig(join(save_to_dir, 'losses.png'))
         fig_2.savefig(join(save_to_dir, 'accuracy.png'))
 
@@ -64,7 +64,7 @@ def plot_training_stats(training_stats, save_to_dir: str = None):
     fig_2.show()
 
 
-class ModelHandler:
+class ModelTrainer:
     def __init__(self,
                  model: BertBinaryClassification,
                  device: torch.device,

@@ -5,7 +5,7 @@ from src.conll_candidates_generator import ConllCandidatesGenerator
 from src.input_data_generator import InputDataGenerator
 from src.dataset_generator import DatasetGenerator
 from src.bert_model import load_bert_from_file, save_bert_to_file, get_class_weights_tensor
-from src.trainer import ModelHandler, plot_training_stats
+from src.trainer import ModelTrainer, plot_training_stats
 
 import torch
 import numpy as np
@@ -129,7 +129,7 @@ model = model_generation(config)
 @timer
 def training(config: ConfigParser):
     epochs = int(config['TRAINING']['Epochs'])
-    handler = ModelHandler(model, device, train_loader, val_loader, test_loader, epochs)
+    handler = ModelTrainer(model, device, train_loader, val_loader, test_loader, epochs)
     training_stats = handler.train()
     handler.test()
     plot_training_stats(training_stats)
