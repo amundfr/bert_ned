@@ -98,14 +98,15 @@ def dataset_generation(config: ConfigParser):
     split_ratios = [float(config['TRAINING']['Training Set Size']),
                     float(config['TRAINING']['Validation Set Size']),
                     float(config['TRAINING']['Test Set Size'])]
+    balanced_dataset_dir = config['INPUT VECTORS']['Balanced Dataset Dir']
     print("Reading vectors ...")
     dataset_generator.read_from_directory(vec_dir)
     print("Making balanced dataset ...")
     dataset_generator.get_balanced_dataset(docs_entities)
     print("Writing balanced dataset to files ...")
-    dataset_generator.write_balanced_dataset_to_files()
+    dataset_generator.write_balanced_dataset_to_files(balanced_dataset_dir)
     print("Reading balanced dataset from files ...")
-    dataset_generator.read_balanced_dataset()
+    dataset_generator.read_balanced_dataset(balanced_dataset_dir)
     print("Splitting dataset ...")
     dataset_generator.get_split_dataset(split_ratios, dataset='balanced')
     print("Getting DataLoaders ...")
