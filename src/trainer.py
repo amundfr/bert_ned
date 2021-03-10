@@ -236,9 +236,7 @@ class ModelTrainer:
                 label_ids = b_labels.to('cpu').numpy()
                 epoch_logits = np.append(epoch_logits, _logits, axis=0)
                 epoch_labels = np.append(epoch_labels, label_ids, axis=0)
-                 # TODO Remove next two:
-                epoch_duration = time.time()-t0
-                return total_loss, epoch_duration, epoch_logits, epoch_labels
+
         epoch_duration = time.time()-t0
         return total_loss, epoch_duration, logits, labels
 
