@@ -1,6 +1,7 @@
 from typing import List, Tuple, Iterable
 from random import sample
 from os.path import isdir, isfile, join
+import json
 
 from torch.utils.data import TensorDataset, Subset, \
         DataLoader, RandomSampler, SequentialSampler
@@ -66,10 +67,45 @@ class DatasetGenerator:
 
     def write_to_files(self, dir: str = 'data/vectors'):
         print(f"Writing vectors to directory {dir}...")
-        save(self.input_ids, self.file_names[0])
-        save(self.attention_mask, self.file_names[1])
-        save(self.token_type_ids, self.file_names[2])
-        save(self.labels, self.file_names[3])
+        save(self.input_ids, join(dir, self.file_names[0]))
+        save(self.attention_mask, join(dir, self.file_names[1]))
+        save(self.token_type_ids, join(dir, self.file_names[2]))
+        save(self.labels, join(dir, self.file_names[3]))
+
+    def write_balanced_dataset_to_files(self, dir: str = 'data/balanced_dataset'):
+        if not self.balanced_dataset:
+            print("Balanced dataset not initialized. Try get_balanced_dataset.")
+            return
+        
+        with open(join(dir, 'balanced_dataset_to_doc'), 'w') as of:
+            json.dump(self.balanced_dataset_to_doc, of)
+        with open(join(dir, 'balanced_dataset_to_entity'), 'w') as of:
+            json.dump(self.balanced_dataset_to_entity, of)
+
+        for i, tensor in enumerate(self.balanced_dataset.tensors):
+            save(tensor, join(dir, self.file_names[i]))
+
+    def read_balanced_dataset(self, dir: str = 'data/balanced_dataset'):
+        if not isdir(dir):
+            print(f"Could not find directory at {dir}.")
+            return
+
+        with open(join(dir, 'balanced_dataset_to_doc')) as f:
+            self.balanced_dataset_to_doc = json.load(f)
+        with open(join(dir, 'balanced_dataset_to_entity')) as f:
+            self.balanced_dataset_to_entity = json.load(f)
+
+        if not all([isfile(join(dir, f)) for f in self.file_names]):
+            print(f"Could not find all files in directory at {dir}."
+                  " Try function read_vectors_from_file.")
+            return
+        
+        tensors = []
+        input_ids = load(join(dir, self.file_names[0]))
+        attention_mask = load(join(dir, self.file_names[1]))
+        token_type_ids = load(join(dir, self.file_names[2]))
+        labels = load(join(dir, self.file_names[3]))
+        self.balanced_dataset = TensorDataset(input_ids, attention_mask, token_type_ids, labels)
 
     def get_tensor_dataset(self):
         if not self.dataset:
@@ -105,23 +141,32 @@ class DatasetGenerator:
         # For the balanced_dataset
         self.balanced_dataset_to_doc = []
 
+        # List of which entity index in the respective dataset (full/balanced) each datapoint corresponds with
+        # For the full dataset
+        self.dataset_to_entity = []
+        # For the balanced_dataset
+        self.balanced_dataset_to_entity = []
+
         # Points at indices in the full dataset
         full_dataset_idx = 0
-        for i, doc_entities in enumerate(docs_entities):
+        for i_doc, doc_entities in enumerate(docs_entities):
             # Iterate Named Entities in current doc
-            for entity_info in doc_entities:
+            for i_entity, entity_info in enumerate(doc_entities):
                 # Skip 'B'-entities (entities not in KB)
                 if entity_info['GroundTruth'] != 'B' and entity_info['Candidates']:
 
                     # All these candidates belong to current doc
-                    self.dataset_to_doc.append([i] * len(entity_info['Candidates']))
+                    self.dataset_to_doc.append([i_doc] * len(entity_info['Candidates']))
+                    self.dataset_to_entity.append(i_entity)
 
                     # Add any positive datapoint (i.e. where candidate is ground truth)
                     if entity_info['GroundTruth'] in entity_info['Candidates']:
-                        gt_idx = full_dataset_idx + entity_info['Candidates'].index(entity_info['GroundTruth'])
+                        local_gt_idx = entity_info['Candidates'].index(entity_info['GroundTruth'])
+                        gt_idx = full_dataset_idx + local_gt_idx
 
-                        # Keep track of which document this comes from
-                        self.balanced_dataset_to_doc.append(i)
+                        # Keep track of which document and entity this comes from
+                        self.balanced_dataset_to_doc.append(i_doc)
+                        self.balanced_dataset_to_entity.append(i_entity)
 
                         # Append to all four input vectors
                         for j in range(len(balanced_tensors)):
@@ -139,10 +184,12 @@ class DatasetGenerator:
 
                     for random_cand in random_cands:
                         # Index of the tensors corresponding to this candidate
-                        cand_idx = full_dataset_idx + entity_info['Candidates'].index(random_cand)
+                        local_cand_idx = entity_info['Candidates'].index(random_cand)
+                        cand_idx = full_dataset_idx + local_cand_idx
 
-                        # Keep track of which document this comes from
-                        self.balanced_dataset_to_doc.append(i)
+                        # Keep track of which document and entity this comes from
+                        self.balanced_dataset_to_doc.append(i_doc)
+                        self.balanced_dataset_to_entity.append(i_entity)
 
                         # Append to all four input vectors
                         for j in range(len(balanced_tensors)):
