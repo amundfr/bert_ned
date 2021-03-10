@@ -129,11 +129,12 @@ model = model_generation(config)
 @timer
 def training(config: ConfigParser):
     epochs = int(config['TRAINING']['Epochs'])
+    save_dir = config['BERT']['Save Model Dir']
     handler = ModelTrainer(model, device, train_loader, val_loader, test_loader, epochs)
     training_stats = handler.train()
     handler.test()
     plot_training_stats(training_stats)
-    save_bert_to_file(model)
+    save_bert_to_file(model, save_dir)
 
 
 training(config)
