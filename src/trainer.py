@@ -72,10 +72,13 @@ class ModelHandler:
                  validation_dataloader: DataLoader,
                  test_dataloader: DataLoader,
                  epochs: int = 3):
-        self.model = model
         self.device = device
+        self.model = model
+
+        # Model is moved to device in-place, but tensors are not:
+        # Source: https://discuss.pytorch.org/t/model-move-to-device-gpu/105620
+        self.model.class_weights = self.model.class_weights.to(device)
         self.model.to(device)
-        # self.model.class_weights.to(device)
 
         self.train_dataloader = train_dataloader
         self.validation_dataloader = validation_dataloader
