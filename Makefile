@@ -1,15 +1,17 @@
 help:
 	@echo ""
 	@echo "Avaliable make commands are:"
-	@echo "           help : prints this message"
-	@echo "            run : runs the python script (recommended inside container, try build first)"
-	@echo "          clean : removes files and folders created during run"
-	@echo "  wharfer-build : builds image using Wharfer"
-	@echo "   docker-build : builds image using Docker"
-	@echo "    wharfer-run : runs image using Wharfer"
-	@echo "     docker-run : runs image using Docker"
-	@echo "    wharfer-all : build and run with Wharfer"
-	@echo "     docker-all : build and run with Docker"
+	@echo " help                  : prints this message"
+	@echo " run                   : runs the python script (recommended inside container, try build first)"
+	@echo " clean                 : removes files and folders created during run"
+	@echo " wharfer-build         : builds image using Wharfer"
+	@echo " docker-build          : builds image using Docker"
+	@echo " wharfer-run-container : runs image using Wharfer"
+	@echo " docker-run-container  : runs image using Docker"
+	@echo " wharfer-run           : runs image using Wharfer, and immediately calls script"
+	@echo " docker-run            : runs image using Docker, and immediately calls script"
+	@echo " wharfer-all           : build and run with Wharfer"
+	@echo " docker-all            : build and run with Docker"
 	@echo ""
 
 all: clean run
@@ -29,10 +31,15 @@ build: wharfer-build
 docker-build:
 	docker build -t raheim/bert_el .
 
+wharfer-run-container:
+	wharfer run -v /local/data/raheim/models:/models -v /local/data/raheim/data:/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/ex_data -it raheim/bert_el
+
+docker-run-container:
+	docker run -v /local/data/raheim/models:/models -v /local/data/raheim/data:/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/ex_data -it raheim/bert_el
+
+
 wharfer-run:
 	wharfer run -v /local/data/raheim/models:/models -v /local/data/raheim/data:/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/ex_data -it raheim/bert_el /bin/sh -c "python bert_el_full_pipeline.py"
-
-run-container: wharfer-run
 
 docker-run:
 	docker run -v /local/data/raheim/models:/models -v /local/data/raheim/data:/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/ex_data -it raheim/bert_el /bin/sh -c "python bert_el_full_pipeline.py"
