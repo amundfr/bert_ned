@@ -19,15 +19,6 @@ torch.manual_seed(seed_val)
 torch.cuda.manual_seed_all(seed_val)
 
 
-device = torch.device("cpu")
-# Use Cuda if Cuda enabled GPU is available
-if torch.cuda.is_available():
-    device = torch.device("cuda")
-    print('Using device:', torch.cuda.get_device_name(0))
-else:
-    print('Using CPU')
-
-
 def timer(func):
     def wrapper(*args, **kwargs):
         print(f"----\n  Timing function ...\n----")
@@ -141,7 +132,7 @@ def training(config: ConfigParser):
     train_update_freq = int(config['VERBOSITY']['Training Update Frequency'])
     validation_update_freq = int(config['VERBOSITY']['Validation Update Frequency'])
     test_update_freq = int(config['VERBOSITY']['Test Update Frequency'])
-    handler = ModelTrainer(model, device, train_loader, val_loader, test_loader, epochs)
+    handler = ModelTrainer(model, train_loader, val_loader, test_loader, epochs)
     training_stats = handler.train(train_update_freq, validation_update_freq)
     handler.test(dataset_to_doc, dataset_to_entity, test_update_freq)
     plot_training_stats(training_stats)

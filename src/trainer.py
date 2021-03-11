@@ -113,18 +113,29 @@ def plot_training_stats(training_stats, save_to_dir: str = None):
 class ModelTrainer:
     def __init__(self,
                  model: BertBinaryClassification,
-                 device: torch.device,
                  train_dataloader: DataLoader,
                  validation_dataloader: DataLoader,
                  test_dataloader: DataLoader,
                  epochs: int = 3):
-        self.device = device
         self.model = model
+
+        # Use Cuda if Cuda enabled GPU is available
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device_count = 0
+        if torch.cuda.is_available():
+            print('Using device:', torch.cuda.get_device_name(0))
+            self.device_count = torch.cuda.device_count()
+            if self.device_count > 1:
+                print(f"Using {self.device_count} GPUs")
+                print("Remember to scale you batch size with number of GPUs in 'config.ini'")
+                self.model = nn.DataParallel(self.model)
+        else:
+            print('Using CPU')
 
         # Model is moved to device in-place, but tensors are not:
         # Source: https://discuss.pytorch.org/t/model-move-to-device-gpu/105620
-        self.model.class_weights = self.model.class_weights.to(device)
-        self.model.to(device)
+        self.model.class_weights = self.model.class_weights.to(self.device)
+        self.model.to(self.device)
 
         self.train_dataloader = train_dataloader
         self.validation_dataloader = validation_dataloader
@@ -155,28 +166,28 @@ class ModelTrainer:
 
         # Reset the total loss for this epoch.
         total_loss = 0
+
         # Used if in evaluation mode (type 'validation' or 'test')
         epoch_logits = np.ndarray((0,2))
         epoch_labels = np.ndarray((0,1))
+
+        # Setup for different epoch modes
         if type == 'train':
             # Put the model into training mode
             self.model.train()
             dataloader = self.train_dataloader
             torch.set_grad_enabled(True)
-            find_accuracy = False
         elif type == 'validation':
             # Put the model into evaluation mode
             self.model.eval()
             dataloader = self.validation_dataloader
             # TODO: Test that this works (is persistent over the function)
             torch.set_grad_enabled(False)
-            find_accuracy = True
         elif type == 'test':
             # Put the model into evaluation mode
             self.model.eval()
             dataloader = self.test_dataloader
             torch.set_grad_enabled(False)
-            find_accuracy = True
         else:
             print(f"type must be 'train', 'validation' or 'test'. Was {type}.")
             return
@@ -240,7 +251,7 @@ class ModelTrainer:
         epoch_duration = time.time()-t0
         return total_loss, epoch_duration, epoch_logits, epoch_labels
 
-    def train(self, train_update_freq: int = 50, valdation_update_freq: int = 50):
+    def train(self, train_update_freq: int = 50, validation_update_freq: int = 50):
         """
         :param test_update_freq: how many training batches to run before printing feedback
         :param validation_update_freq: how many validation batches to run before printing feedback
