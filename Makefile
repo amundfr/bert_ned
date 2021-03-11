@@ -30,12 +30,12 @@ docker-build:
 	docker build -t raheim/bert_el .
 
 wharfer-run:
-	wharfer run -v /local/data/raheim/models:/models -v /local/data/raheim/data:/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/ex_data -it raheim/bert_el
+	wharfer run -v /local/data/raheim/models:/models -v /local/data/raheim/data:/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/ex_data -it raheim/bert_el /bin/sh -c "python bert_el_full_pipeline.py"
 
 run-container: wharfer-run
 
 docker-run:
-	docker run -v /local/data/raheim/models:/models -v /local/data/raheim/data:/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/ex_data -it raheim/bert_el
+	docker run -v /local/data/raheim/models:/models -v /local/data/raheim/data:/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/ex_data -it raheim/bert_el /bin/sh -c "python bert_el_full_pipeline.py"
 
 wharfer-all: wharfer-build wharfer-run
 
