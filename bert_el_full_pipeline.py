@@ -119,6 +119,7 @@ def model_generation(config: ConfigParser):
     model = load_bert_from_file(model_dir)
     # TODO: test use of class weights on accuracy performance
     model.set_class_weights(get_class_weights_tensor(1, 1))
+    model.freeze_n_transformers(8)
     return model
 
 model = model_generation(config)
@@ -135,7 +136,7 @@ def training(config: ConfigParser):
     handler = ModelTrainer(model, train_loader, val_loader, test_loader, epochs)
     training_stats = handler.train(train_update_freq, validation_update_freq)
     handler.test(dataset_to_doc, dataset_to_entity, test_update_freq)
-    plot_training_stats(training_stats)
+    plot_training_stats(training_stats, save_dir)
     save_bert_to_file(model, save_dir)
 
 
