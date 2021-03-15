@@ -26,6 +26,8 @@ class DatasetGenerator:
         # in the respective datasets come from
         self.dataset_to_doc = []
         self.balanced_dataset_to_doc = []
+        self.dataset_to_entity = []
+        self.balanced_dataset_to_entity = []
         # Subsets of a dataset defined in split_dataset
         self.train_dataset = None
         self.val_dataset = None
@@ -51,7 +53,7 @@ class DatasetGenerator:
         self.input_ids = load(join(dir, self.file_names[0]))
         self.attention_mask = load(join(dir, self.file_names[1]))
         self.token_type_ids = load(join(dir, self.file_names[2]))
-        self.labels = load(join(dir, self.file_names[3]))
+        self.labels = load(join(dir, self.file_names[3])).unsqueeze(-1)
 
     def read_from_files(self,
                         f_input_ids: str = 'data_vectors_input_ids.pt',
@@ -76,7 +78,7 @@ class DatasetGenerator:
         if not self.balanced_dataset:
             print("Balanced dataset not initialized. Try get_balanced_dataset.")
             return
-        
+
         with open(join(dir, 'balanced_dataset_to_doc'), 'w') as of:
             json.dump(self.balanced_dataset_to_doc, of)
         with open(join(dir, 'balanced_dataset_to_entity'), 'w') as of:
@@ -99,7 +101,7 @@ class DatasetGenerator:
             print(f"Could not find all files in directory at {dir}."
                   " Try function read_vectors_from_file.")
             return
-        
+
         tensors = []
         input_ids = load(join(dir, self.file_names[0]))
         attention_mask = load(join(dir, self.file_names[1]))
@@ -112,6 +114,23 @@ class DatasetGenerator:
             self.dataset = TensorDataset(self.input_ids, self.attention_mask,
                                 self.token_type_ids, self.labels)
         return self.dataset
+
+    def get_dataset_to_doc_and_entity(self, docs_entities: List = None):
+        if self.dataset_to_doc and self.dataset_to_entity:
+            return self.dataset_to_doc, self.dataset_to_entity
+        else:
+            self.dataset_to_doc = []
+            self.dataset_to_entity = []
+            for i_doc, doc_entities in enumerate(docs_entities):
+                # Iterate Named Entities in current doc
+                for i_entity, entity_info in enumerate(doc_entities):
+                    # Skip 'B'-entities (entities not in KB)
+                    if entity_info['GroundTruth'] != 'B' and entity_info['Candidates']:
+                        # All these candidates belong to current doc
+                        self.dataset_to_doc.extend([i_doc] * len(entity_info['Candidates']))
+                        self.dataset_to_entity.extend([i_entity] * len(entity_info['Candidates']))
+            return self.dataset_to_doc, self.dataset_to_entity
+
 
     def get_balanced_dataset(self, docs_entities: List, n_neg: int = 1)\
             -> TensorDataset:
@@ -156,7 +175,7 @@ class DatasetGenerator:
                 if entity_info['GroundTruth'] != 'B' and entity_info['Candidates']:
 
                     # All these candidates belong to current doc
-                    self.dataset_to_doc.append([i_doc] * len(entity_info['Candidates']))
+                    self.dataset_to_doc.extend([i_doc] * len(entity_info['Candidates']))
                     self.dataset_to_entity.append(i_entity)
 
                     # Add any positive datapoint (i.e. where candidate is ground truth)
@@ -188,7 +207,7 @@ class DatasetGenerator:
                         cand_idx = full_dataset_idx + local_cand_idx
 
                         # Keep track of which document and entity this comes from
-                        self.balanced_dataset_to_doc.append(i_doc)
+                        self.balanced_dataset_to_doc.extend(i_doc)
                         self.balanced_dataset_to_entity.append(i_entity)
 
                         # Append to all four input vectors
@@ -209,7 +228,7 @@ class DatasetGenerator:
         return self.balanced_dataset
 
 
-    def get_split_dataset(self, split_ratios: Iterable, dataset: str = 'balanced')\
+    def get_split_dataset(self, split_ratios: Iterable, dataset: str = 'balanced', docs_entities: List = None)\
             -> Tuple[Subset, Subset, Subset]:
         """
         Splits the dataset in given ratios to train, validation and test subsets
@@ -220,17 +239,18 @@ class DatasetGenerator:
         :param split_ratios: the ratios of the train, validation, and split respectively
             as an iterable of three ratio values
         :param dataset: 'full' or 'balanced' respectively for the full or the balanced dataset
+        :param docs_entities: if not 'balanced', this is used to generate dataset_to_doc
         :returns: three torch Subset with training, validation and test data
         """
         if dataset == 'balanced':
             dataset_to_doc = self.balanced_dataset_to_doc
             dataset = self.balanced_dataset
         else:
-            dataset_to_doc = self.dataset_to_doc
-            dataset = self.dataset
+            dataset_to_doc, _ = self.get_dataset_to_doc_and_entity(docs_entities)
+            dataset = self.get_tensor_dataset()
 
         # Number of different docs
-        n_docs = len(set(dataset_to_doc))
+        n_docs = dataset_to_doc[-1]
 
         # ratio of training data, base 1
         train_ratio = split_ratios[0] / sum(split_ratios)
@@ -240,6 +260,11 @@ class DatasetGenerator:
         n_val = int(val_ratio * n_docs)
         # the rest is test data
         n_test = n_docs - n_train - n_val
+
+        print(f" Dataset ID ranges:")
+        print(f"--      Train: [{1:>4}, {n_train:>4}]")
+        print(f"-- Validation: [{n_train+1:>4}, {n_train + n_val:>4}]")
+        print(f"--       Test: [{n_train + n_val + 1:>4}, {n_train+n_val+n_test+1:>4}] (Tot: {n_docs+1:>4})\n")
 
         # Keeping track of the indices in the dataset
         # These are used to define the final Subset
@@ -265,6 +290,7 @@ class DatasetGenerator:
         self.train_dataset = Subset(dataset, train_indices)
         self.val_dataset = Subset(dataset, val_indices)
         self.test_dataset = Subset(dataset, test_indices)
+
         return self.train_dataset, self.val_dataset, self.test_dataset
 
     def get_data_loaders(self, batch_size: int = 32):

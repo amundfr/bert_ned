@@ -86,62 +86,101 @@ def input_data_generation(config: ConfigParser):
     return input_vectors
 
 
-# input_vectors = input_data_generation(config)
+read_input = config['INPUT VECTORS']['Read Input Vectors From Dir']
+input_vectors = None
+if not read_input:
+    input_vectors = input_data_generation(config)
 
-# --------------------------------------------------
 
-dataset_generator = DatasetGenerator()
+# -- Read or generate BERT input vectors, and other info ----------------------
+
 
 @timer
 def dataset_generation(config: ConfigParser):
-    vec_dir = config['INPUT VECTORS']['Input Vectors Dir']
-    split_ratios = [float(config['TRAINING']['Training Set Size']),
-                    float(config['TRAINING']['Validation Set Size']),
-                    float(config['TRAINING']['Test Set Size'])]
-    balanced_dataset_dir = config['INPUT VECTORS']['Balanced Dataset Dir']
-    print("Reading vectors ...")
-    dataset_generator.read_from_directory(vec_dir)
-    print("Making balanced dataset ...")
-    dataset_generator.get_balanced_dataset(docs_entities)
-    print("Writing balanced dataset to files ...")
-    dataset_generator.write_balanced_dataset_to_files(balanced_dataset_dir)
-    print("Reading balanced dataset from files ...")
-    dataset_generator.read_balanced_dataset(balanced_dataset_dir)
-    print("Splitting dataset ...")
-    dataset_generator.get_split_dataset(split_ratios, dataset='balanced')
+    read_input = config.getboolean('INPUT VECTORS', 'Read Input Vectors From Dir')
+    use_balanced_dataset = config.getboolean('INPUT VECTORS', 'Use Balanced Dataset')
+
+    # Recommended CoNLL split, reverse engineered to ratios.
+    split_ratios = [0.6799, 0.1557, 0.1644]
+    use_default_split = config.getboolean('TRAINING', 'Use Default Split')
+    if not use_default_split:
+        split_ratios = [float(config['TRAINING']['Training Set Size']),
+                        float(config['TRAINING']['Validation Set Size']),
+                        float(config['TRAINING']['Test Set Size'])]
+
+    dataset_generator = DatasetGenerator()
+    if not read_input and input_vectors:
+        dataset_generator = DatasetGenerator(*input_vectors)
+
+    if use_balanced_dataset:
+        balanced_dataset_dir = config['INPUT VECTORS']['Balanced Dataset Dir']
+
+        if read_input and balanced_dataset_dir:
+            print("Reading balanced dataset from files ...")
+            dataset_generator.read_balanced_dataset(balanced_dataset_dir)
+        else:
+            n_neg_samples = config['INPUT VECTORS']['N Negative Samples']
+            print("Generating balanced dataset ...")
+            dataset_generator.get_balanced_dataset(docs_entities, n_neg_samples)
+            if balanced_dataset_dir:
+                print("Writing balanced dataset to files ...")
+                dataset_generator.write_balanced_dataset_to_files(balanced_dataset_dir)
+        print("Splitting dataset ...")
+        dataset_generator.get_split_dataset(split_ratios, dataset='balanced')
+        dataset_to_doc = dataset_generator.balanced_dataset_to_doc
+        dataset_to_mention = dataset_generator.balanced_dataset_to_entity
+    else:
+        vec_dir = config['INPUT VECTORS']['Input Vectors Dir']
+        if read_input and vec_dir:
+            print("Reading vectors ...")
+            dataset_generator.read_from_directory(vec_dir)
+        print("Splitting dataset ...")
+        dataset_generator.get_split_dataset(split_ratios, dataset='full', docs_entities=docs_entities)
+        dataset_to_doc, dataset_to_mention = dataset_generator.get_dataset_to_doc_and_entity(docs_entities)
+
     print("Getting DataLoaders ...")
-    return dataset_generator.get_data_loaders(batch_size=int(config['TRAINING']['Batch Size']))
+    train_loader, val_loader, test_loader = \
+        dataset_generator.get_data_loaders(batch_size=int(config['TRAINING']['Batch Size']))
+    # neg, pos = dataset_generator.get_dataset_balance_info()
+    return train_loader, val_loader, test_loader, dataset_to_doc, dataset_to_mention
 
 
-train_loader, val_loader, test_loader = dataset_generation(config)
-neg, pos = dataset_generator.get_dataset_balance_info()
-# These two are needed to take accuracy over entities, rather than over candidates
-dataset_to_doc = dataset_generator.balanced_dataset_to_doc
-dataset_to_entity = dataset_generator.balanced_dataset_to_entity
-dataset_generator = None
+train_loader, val_loader, test_loader, dataset_to_doc, dataset_to_mention = dataset_generation(config)
 
-# --------------------------------------------------
+
+# -- Generate BERT model ------------------------------------------------------
+
 
 @timer
 def model_generation(config: ConfigParser):
     model_dir = config['BERT']['Bert Model Dir']
-    model = load_bert_from_file(model_dir)
-    # TODO: test use of class weights on accuracy performance
-    model.set_class_weights(get_class_weights_tensor(1, 1))
-    model.freeze_n_transformers(8)
+    if model_dir:
+        model = load_bert_from_file(model_dir)
+    else:
+        model_path = config['BERT']['Model ID']
+        model = BertBinaryClassification.from_pretrained(model_path, use_cls=False)
+
+    freeze_n_transformers = config['TRAINING']['Freeze N Transformers']
+    freeze_n_transformers = int(freeze_n_transformers) if freeze_n_transformers else 12
+    model.freeze_n_transformers(freeze_n_transformers)
+
     return model
 
 model = model_generation(config)
 
-# --------------------------------------------------
+
+# -- Train and test -----------------------------------------------------------
+
 
 @timer
 def training(config: ConfigParser):
     epochs = int(config['TRAINING']['Epochs'])
     save_dir = config['BERT']['Save Model Dir']
+
     train_update_freq = int(config['VERBOSITY']['Training Update Frequency'])
     validation_update_freq = int(config['VERBOSITY']['Validation Update Frequency'])
     test_update_freq = int(config['VERBOSITY']['Test Update Frequency'])
+
     handler = ModelTrainer(model, train_loader, val_loader, test_loader, epochs)
     training_stats = handler.train(train_update_freq, validation_update_freq)
     handler.test(dataset_to_doc, dataset_to_entity, test_update_freq)
