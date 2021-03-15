@@ -1,5 +1,10 @@
 """
+Author: Amund Faller Råheim
+
 Custom BERT model, extending BertPreTrainedModel in the same way as the transformers library
+
+Requires:
+A pretrained BERT model, or a reference to a pretrained Huggingface model
 """
 
 from typing import List
@@ -43,7 +48,6 @@ class BertBinaryClassification(BertPreTrainedModel):
         # The BertModel with pooling layer depending on the use_cls parameter
         self.bert = BertModel(config, add_pooling_layer=self.use_cls)
 
-        # TODO: Use dropout after BERT? Is used by BertForSequenceClassification
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
         # Classifier depends on if we use the pooled output (CLS) or the sequence output.
@@ -52,17 +56,17 @@ class BertBinaryClassification(BertPreTrainedModel):
         # If using pooled output
         if self.use_cls:
             cls_layers.append(nn.Linear(config.hidden_size, config.hidden_size))
-            cls_layers.append(nn.GELU())  # TODO: Try without.
+            cls_layers.append(nn.GELU())
             cls_layers.append(nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps))
             cls_layers.append(nn.Linear(config.hidden_size, self.num_labels))
 
-        # If we're using full sequence output
+        # If we're using extended sequence output
         else:
             # Input dimension depending on numer of tokens encodings
             input_dim = config.hidden_size * 3
 
             cls_layers.append(nn.Linear(input_dim, config.hidden_size))
-            cls_layers.append(nn.GELU())  # TODO: Try without.
+            cls_layers.append(nn.GELU())
             cls_layers.append(nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps))
             cls_layers.append(nn.Linear(config.hidden_size, self.num_labels))
 
@@ -86,12 +90,8 @@ class BertBinaryClassification(BertPreTrainedModel):
             labels=None,
             output_attentions=None,
             output_hidden_states=None,
-            return_dict=None,
-            **kwargs
-        ):
-        """
-
-        """
+            return_dict=None
+            ):
         outputs = self.bert(
             input_ids,
             attention_mask=attention_mask,
@@ -101,13 +101,13 @@ class BertBinaryClassification(BertPreTrainedModel):
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
+            return_dict=return_dict
         )
 
         # Use either pooled output or sequence output, depending on settings
         bert_output = outputs[1] if self.use_cls else outputs[0]
 
-        # Get the state of the [CLS] token, and the first token of the named entity and candidate
+        # Get the state of the [CLS] token, and the first token of the mention and candidate entity
         if not self.use_cls:
             # Position of the first token of the candidate (right after the [SEP] token)
             cand_pos = torch.argmax(token_type_ids, dim=1)
@@ -142,7 +142,7 @@ class BertBinaryClassification(BertPreTrainedModel):
             attentions=outputs.attentions,
         )
 
-    def freeze_layers(self, param_idx: List, module='bert'):
+    def freeze_layers(self, param_idx: List):
         module_params = list(self.named_parameters())
         for param in (module_params[p] for p in param_idx):
             param[1].requires_grad = False
@@ -186,4 +186,3 @@ def get_class_weights_tensor(neg, pos):
     # Weight by the frequency of the other label
     tot = neg + pos
     return torch.Tensor([pos / tot, neg / tot])
-

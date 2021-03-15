@@ -1,4 +1,11 @@
-from typing import List, Tuple, Iterable
+"""
+Author: Amund Faller Råheim
+
+This class makes dataloaders and splits the dataset.
+Takes the output of InputDataGenerator as input.
+"""
+
+from typing import List, Tuple
 from random import sample
 from os.path import isdir, isfile, join
 import json
@@ -41,21 +48,19 @@ class DatasetGenerator:
                            'data_vectors_token_type_ids.pt',
                            'data_vectors_labels.pt']
 
-    def read_from_directory(self, dir: str = 'data/vectors'):
-        if not isdir(dir):
-            print(f"Could not find directory at {dir}.")
-            return
+    def read_from_directory(self, vectors_dir: str = 'data/vectors'):
+        if not isdir(vectors_dir):
+            raise FileNotFoundError(f"Could not find directory at {vectors_dir}.")
 
-        if not all([isfile(join(dir, f)) for f in self.file_names]):
-            print(f"Could not find all files in directory at {dir}."
-                  " Try function read_vectors_from_file.")
-            return
+        if not all([isfile(join(vectors_dir, f)) for f in self.file_names]):
+            raise FileNotFoundError(f"Could not find all files in directory at {vectors_dir}."
+                                    " Try function read_vectors_from_file.")
 
-        self.file_dir = dir
-        self.input_ids = load(join(dir, self.file_names[0]))
-        self.attention_mask = load(join(dir, self.file_names[1]))
-        self.token_type_ids = load(join(dir, self.file_names[2]))
-        self.labels = load(join(dir, self.file_names[3])).unsqueeze(-1)
+        self.file_dir = vectors_dir
+        self.input_ids = load(join(vectors_dir, self.file_names[0]))
+        self.attention_mask = load(join(vectors_dir, self.file_names[1]))
+        self.token_type_ids = load(join(vectors_dir, self.file_names[2]))
+        self.labels = load(join(vectors_dir, self.file_names[3])).unsqueeze(-1)
 
     def read_from_files(self,
                         f_input_ids: str = 'data_vectors_input_ids.pt',
@@ -69,55 +74,51 @@ class DatasetGenerator:
         self.file_dir = directory
         self.read_from_directory(self.file_dir)
 
-    def write_to_files(self, dir: str = 'data/vectors'):
-        print(f"Writing vectors to directory {dir}...")
-        save(self.input_ids, join(dir, self.file_names[0]))
-        save(self.attention_mask, join(dir, self.file_names[1]))
-        save(self.token_type_ids, join(dir, self.file_names[2]))
-        save(self.labels, join(dir, self.file_names[3]))
+    def write_to_files(self, vectors_dir: str = 'data/vectors'):
+        print(f"Writing vectors to directory {vectors_dir}...")
+        save(self.input_ids, join(vectors_dir, self.file_names[0]))
+        save(self.attention_mask, join(vectors_dir, self.file_names[1]))
+        save(self.token_type_ids, join(vectors_dir, self.file_names[2]))
+        save(self.labels, join(vectors_dir, self.file_names[3]))
 
-    def write_balanced_dataset_to_files(self, dir: str = 'data/balanced_dataset'):
+    def write_balanced_dataset_to_files(self, dataset_dir: str = 'data/balanced_dataset'):
         if not self.balanced_dataset:
-            print("Balanced dataset not initialized. Try get_balanced_dataset.")
-            return
+            raise ValueError("Balanced dataset not initialized. Try get_balanced_dataset.")
 
-        with open(join(dir, 'balanced_dataset_to_doc'), 'w') as of:
+        with open(join(dataset_dir, 'balanced_dataset_to_doc'), 'w') as of:
             json.dump(self.balanced_dataset_to_doc, of)
-        with open(join(dir, 'balanced_dataset_to_entity'), 'w') as of:
+        with open(join(dataset_dir, 'balanced_dataset_to_entity'), 'w') as of:
             json.dump(self.balanced_dataset_to_entity, of)
 
         for i, tensor in enumerate(self.balanced_dataset.tensors):
-            save(tensor, join(dir, self.file_names[i]))
+            save(tensor, join(dataset_dir, self.file_names[i]))
 
-    def read_balanced_dataset(self, dir: str = 'data/balanced_dataset'):
-        if not isdir(dir):
-            print(f"Could not find directory at {dir}.")
-            return
+    def read_balanced_dataset(self, dataset_dir: str = 'data/balanced_dataset'):
+        if not isdir(dataset_dir):
+            raise FileNotFoundError(f"Could not find directory at {dataset_dir}.")
 
-        with open(join(dir, 'balanced_dataset_to_doc')) as f:
+        with open(join(dataset_dir, 'balanced_dataset_to_doc')) as f:
             self.balanced_dataset_to_doc = json.load(f)
-        with open(join(dir, 'balanced_dataset_to_entity')) as f:
+        with open(join(dataset_dir, 'balanced_dataset_to_entity')) as f:
             self.balanced_dataset_to_entity = json.load(f)
 
-        if not all([isfile(join(dir, f)) for f in self.file_names]):
-            print(f"Could not find all files in directory at {dir}."
+        if not all([isfile(join(dataset_dir, f)) for f in self.file_names]):
+            raise FileNotFoundError(f"Could not find all files in directory at {dataset_dir}."
                   " Try function read_vectors_from_file.")
-            return
 
-        tensors = []
-        input_ids = load(join(dir, self.file_names[0]))
-        attention_mask = load(join(dir, self.file_names[1]))
-        token_type_ids = load(join(dir, self.file_names[2]))
-        labels = load(join(dir, self.file_names[3]))
+        input_ids = load(join(dataset_dir, self.file_names[0]))
+        attention_mask = load(join(dataset_dir, self.file_names[1]))
+        token_type_ids = load(join(dataset_dir, self.file_names[2]))
+        labels = load(join(dataset_dir, self.file_names[3]))
         self.balanced_dataset = TensorDataset(input_ids, attention_mask, token_type_ids, labels)
 
-    def get_tensor_dataset(self):
+    def get_tensor_dataset(self) -> TensorDataset:
         if not self.dataset:
             self.dataset = TensorDataset(self.input_ids, self.attention_mask,
-                                self.token_type_ids, self.labels)
+                                         self.token_type_ids, self.labels)
         return self.dataset
 
-    def get_dataset_to_x(self, docs_entities: List = None):
+    def get_dataset_to_x(self, docs_entities: List = None) -> Tuple[List, List, List]:
         """
         Iterating the docs_entities list of mentions, 
         this function generates the mapping of the dataset (unsplit)
@@ -148,8 +149,7 @@ class DatasetGenerator:
                         self.dataset_to_candidate.extend(entity_info['Candidates'])
             return self.dataset_to_doc, self.dataset_to_entity, self.dataset_to_candidate
 
-    def get_balanced_dataset(self, docs_entities: List, n_neg: int = 1)\
-            -> TensorDataset:
+    def get_balanced_dataset(self, docs_entities: List, n_neg: int = 1) -> TensorDataset:
         """
         Create a smaller, balanced dataset with up to n_neg negative
         sample for each entity.
@@ -250,8 +250,7 @@ class DatasetGenerator:
                                               balanced_tensors[3])
         return self.balanced_dataset
 
-
-    def get_split_dataset(self, split_ratios: Iterable, dataset: str = 'balanced', docs_entities: List = None)\
+    def get_split_dataset(self, split_ratios: List, dataset: str = 'balanced', docs_entities: List = None)\
             -> Tuple[Subset, Subset, Subset]:
         """
         Splits the dataset in given ratios to train, validation and test subsets
@@ -260,7 +259,7 @@ class DatasetGenerator:
         This requires that the functions to initialize the datasets have already been run
 
         :param split_ratios: the ratios of the train, validation, and split respectively
-            as an iterable of three ratio values
+            as a list of three ratio values
         :param dataset: 'full' or 'balanced' respectively for the full or the balanced dataset
         :param docs_entities: if not 'balanced', this is used to generate dataset_to_doc
         :returns: three torch Subset with training, validation and test data
@@ -351,14 +350,6 @@ class DatasetGenerator:
 
         return train_dataloader, validation_dataloader, test_dataloader
 
-    def print_size_of_vectors(self):
-        size = sum(self.input_ids.element_size() * self.input_ids.nelement())
-        size = sum(self.attention_mask.element_size() * self.attention_mask.nelement())
-        size = sum(self.token_type_ids.element_size() * self.token_type_ids.nelement())
-        size = sum(self.labels.element_size() * self.labels.nelement())
-
-        print(f"Training data size (minimized): {size / 2 ** 20: .2f} MB")
-
     def print_token_sequence_stats(self):
         # Average length of the left and right sequences
         n_tots = []
@@ -378,7 +369,10 @@ class DatasetGenerator:
         print(f"{sum(n_right_tokens) / len(n_right_tokens) :.1f} average tokens in candidate sequence.")
         print(f"Min: {min(n_right_tokens)}, max: {max(n_right_tokens)}")
 
-    def get_dataset_balance_info(self):
+    def get_dataset_balance_info(self) -> Tuple[int, int]:
+        """
+        :returns: number of negative and positive labels in training dataset
+        """
         if not self.train_dataset:
             print("The split datasets have not been initialized."
                   "Please try the function get_split_dataset first.")

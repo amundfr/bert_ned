@@ -1,10 +1,17 @@
+"""
+Author: Amund Faller Råheim
+
+This class takes a BERT model (e.g. BertBinaryClassification) and train, validation and test datasets
+and performs training and testing.
+"""
+
 import time
 import datetime
 import numpy as np
 import torch
 
-from os.path import isdir, join
-from collections import Counter
+from os.path import isdir
+from typing import List
 from src.bert_model import BertBinaryClassification
 from transformers import AdamW, get_cosine_schedule_with_warmup
 from torch.utils.data import DataLoader
@@ -16,7 +23,7 @@ def format_time(elapsed):
   Takes a time in seconds and returns a string hh:mm:ss
   """
     # Round to the nearest second.
-    elapsed_rounded = int(round((elapsed)))
+    elapsed_rounded = int(round(elapsed))
 
     # Format as "d days, hh:mm:ss"
     return str(datetime.timedelta(seconds=elapsed_rounded))
@@ -44,7 +51,6 @@ class ModelTrainer:
         else:
             print('Using CPU')
 
-
         self.train_dataloader = train_dataloader
         self.validation_dataloader = validation_dataloader
         self.test_dataloader = test_dataloader
@@ -65,9 +71,9 @@ class ModelTrainer:
                 num_training_steps=total_steps
             )
 
-    def run_epoch(self, type: str, feedback_frequency: int = 50):
+    def run_epoch(self, run_type: str, feedback_frequency: int = 50):
         """
-        :param type: is 'train', 'validation' or 'test'
+        :param run_type: is 'train', 'validation' or 'test'
         :param feedback_frequency: print progress after this many batches
         """
         t0 = time.time()
@@ -76,29 +82,27 @@ class ModelTrainer:
         total_loss = 0
 
         # Used if in evaluation mode (type 'validation' or 'test')
-        epoch_logits = np.ndarray((0,2))
-        epoch_labels = np.ndarray((0,1))
+        epoch_logits = np.ndarray((0, 2))
+        epoch_labels = np.ndarray((0, 1))
 
         # Setup for different epoch modes
-        if type == 'train':
+        if run_type == 'train':
             # Put the model into training mode
             self.model.train()
             dataloader = self.train_dataloader
             torch.set_grad_enabled(True)
-        elif type == 'validation':
+        elif run_type == 'val':
             # Put the model into evaluation mode
             self.model.eval()
             dataloader = self.validation_dataloader
-            # TODO: Test that this works (is persistent over the function)
             torch.set_grad_enabled(False)
-        elif type == 'test':
+        elif run_type == 'test':
             # Put the model into evaluation mode
             self.model.eval()
             dataloader = self.test_dataloader
             torch.set_grad_enabled(False)
         else:
-            print(f"type must be 'train', 'validation' or 'test'. Was {type}.")
-            return
+            raise ValueError(f"type must be 'train', 'val' or 'test'. Was {run_type}.")
 
         # For each batch of training data...
         for step, batch in enumerate(dataloader):
@@ -136,7 +140,7 @@ class ModelTrainer:
             total_loss += loss.item()
 
             # Take a training step, if training
-            if type == 'train':
+            if run_type == 'train':
                 # Perform a backward pass to calculate the gradients
                 loss.backward()
 
@@ -161,7 +165,7 @@ class ModelTrainer:
 
     def train(self, train_update_freq: int = 50, validation_update_freq: int = 50):
         """
-        :param test_update_freq: how many training batches to run before printing feedback
+        :param train_update_freq: how many training batches to run before printing feedback
         :param validation_update_freq: how many validation batches to run before printing feedback
         """
         # Holds some metrics on the duration and result of the training and validation
@@ -185,8 +189,6 @@ class ModelTrainer:
             print('\nTraining...')
 
             # Measure how long the training epoch takes.
-            t0 = time.time()
-
             total_train_loss, training_duration, _, _ = self.run_epoch('train', train_update_freq)
 
             # Calculate the average loss over all of the batches.
@@ -202,15 +204,12 @@ class ModelTrainer:
 
             print("\nRunning Validation...")
 
-            t0 = time.time()
-
-            total_eval_loss, eval_duration, val_logits, val_labels = self.run_epoch('validation', validation_update_freq)
+            total_eval_loss, eval_duration, val_logits, val_labels = self.run_epoch('val', validation_update_freq)
 
             validation_duration = format_time(eval_duration)
 
             # Report the final accuracy for this validation run.
-            # total_eval_accuracy = 0
-            avg_val_accuracy = accuracy_over_candidates(logits, labels)
+            avg_val_accuracy = accuracy_over_candidates(val_logits, val_labels)
             print("  Accuracy: {0:.4f}".format(avg_val_accuracy))
 
             # Calculate the average loss over all of the batches.
@@ -256,14 +255,12 @@ class ModelTrainer:
 
         for s in training_stats:
             print(stats_fs.format(s['epoch'], s['Training Time'], s['Training Loss'],
-                    s['Validation Time'], s['Valid. Loss'], s['Valid. Accur.']))
+                  s['Validation Time'], s['Valid. Loss'], s['Valid. Accur.']))
 
         return training_stats
 
-
-    def test(self, dataset_to_doc, dataset_to_mention, \
-             test_update_freq: int = 50, \
-             dataset_to_candidate = None, result_file = '/data/evaluation_result.csv'):
+    def test(self, dataset_to_doc: List, dataset_to_mention: List, test_update_freq: int = 50,
+             dataset_to_candidate: List = None, result_file: str = '/data/evaluation_result.csv'):
         """
         Evaluate the model with the test dataset.
         Relies on mappings from data point to documents and mentions
@@ -281,14 +278,14 @@ class ModelTrainer:
             If provided, enters a very verbose state, printing
             full results of the prediction in a csv format.
         :param result_file: Path to output file for full results.
-            Provide a false value if you don't want to save output to file.
+            Provide empty string if you don't want to save output to file.
         """
         print("Running Testing...")
 
         total_loss, test_duration, preds, labels = self.run_epoch('test', test_update_freq)
 
         testdata_start = len(self.train_dataloader.dataset.indices) + \
-                         len(self.validation_dataloader.dataset.indices)
+            len(self.validation_dataloader.dataset.indices)
         docs = dataset_to_doc[testdata_start:testdata_start+len(labels)]
         mentions = dataset_to_mention[testdata_start:testdata_start+len(labels)]
         candidates = None

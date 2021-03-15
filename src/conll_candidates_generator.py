@@ -1,16 +1,15 @@
 """
 Author: Amund Faller Råheim
-This class wraps a dataset of CoNLL documents with tagged named entities,
-for use as a training corpus.
+
+This class wraps a dataset of CoNLL documents with mentions tagged
+with Wikidata IDs for use as a training corpus.
 
 Requires:
 a Spacy language model like en_core_web_sm (12 MB) or en_core_web_lg (800 MB)
-Can be obtained with e.g.
-> python -m spacy download en_core_web_sm
-
-And the repository wiki_entity_linker at
-https://github.com/ad-freiburg/wiki_entity_linker
-Which is private as of Feb 2021. (Contact for access?)
+    Can be obtained with e.g.
+    > python -m spacy download en_core_web_sm
+a Spacy KnowledgeBase to yield candidates,
+and a vocabulary for the Spacy KnowledgeBase
 """
 
 from typing import Dict, List
@@ -108,7 +107,6 @@ class ConllCandidatesGenerator:
         for i_token, token in enumerate(doc.tokens):
 
             # If we are looking at the beginning of a named entity
-            # TODO: Skip B's already here.
             if token.true_label.startswith("Q") or token.true_label == "B":
 
                 # Check if we already have collected a named entity
@@ -231,8 +229,10 @@ class ConllCandidatesGenerator:
 
         print(f"{n_ne: >7,} named entities in total")
         print(f"{n_cand: >7,} candidates in total (total number of data points)")
-        print(f"{n_pos_labels: >7,} / {n_cand: >7,} positive labels ({100 * n_pos_labels / n_cand: >5.2f} % all all labels )")
-        print(f"{n_neg_labels: >7,} / {n_cand: >7,} negative labels ({100 * n_neg_labels / n_cand: >5.2f} % all all labels )")
+        print(f"{n_pos_labels: >7,} / {n_cand: >7,} positive labels "
+              f"({100 * n_pos_labels / n_cand: >5.2f} % all all labels )")
+        print(f"{n_neg_labels: >7,} / {n_cand: >7,} negative labels "
+              f"({100 * n_neg_labels / n_cand: >5.2f} % all all labels )")
 
         print(f"{n_no_cand: >7,} / {n_ne: >7,} named entities have no candidates")
         print(f"{n_no_pos_labels: >7,} / {n_ne: >7,} named entities where correct label is not among candidates")
@@ -240,4 +240,3 @@ class ConllCandidatesGenerator:
         print(f"{n_ne_bs: >7,} / {n_cand: >7,} candidates for named entities not in Wikidata KB")
 
         print(f"{n_cand/n_ne:.1f} average number of candidates per entity")
-

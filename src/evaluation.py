@@ -1,10 +1,14 @@
+"""
+Author: Amund Faller Råheim
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from os.path import isdir, isfile, join
 from collections import Counter
 
 
-def accuracy_over_mentions(preds, labels, docs, mentions, candidates = None):
+def accuracy_over_mentions(preds, labels, docs, mentions, candidates=None):
     """
     Calculate the accuracy of a classification prediction
     over mentions, using the argmax of the preds.
@@ -34,9 +38,9 @@ def accuracy_over_mentions(preds, labels, docs, mentions, candidates = None):
     # Preparing to return all the results as a csv table
     result_str = ""
     if candidates and len(candidates) == len(preds):
-        print("Found parameter 'docs_mentions'. "\
+        print("Found parameter 'docs_mentions'. "
               "Printing full results for the test set ...")
-        result_str = "doc; mention_i; mention; accuracy; "\
+        result_str = "doc; mention_i; mention; accuracy; " \
                      "candidate; label; top_pred; prediction\n"
     else:
         candidates = None
@@ -51,9 +55,9 @@ def accuracy_over_mentions(preds, labels, docs, mentions, candidates = None):
         n_data_points = ctr[mention_key]
 
         # Get all predictions and labels for this mention
-        mention_preds = preds[i:i+n_data_points]
-        mention_labels = labels[i:i+n_data_points].flatten()
-        assert len(mention_labels[mention_labels==1.0]) <= 1
+        mention_preds = preds[i:i + n_data_points]
+        mention_labels = labels[i:i + n_data_points].flatten()
+        assert len(mention_labels[mention_labels == 1.0]) <= 1
 
         # Pick single top prediction that BERT thinks is True as candidate
         pred_true = np.argmax(mention_preds, axis=0)[1]
@@ -70,14 +74,14 @@ def accuracy_over_mentions(preds, labels, docs, mentions, candidates = None):
 
         # If in verbose mode
         if candidates:
-            mention_candidates = candidates[i:i+n_data_points]
+            mention_candidates = candidates[i:i + n_data_points]
             mention_gt = mention_candidates[np.argmax(mention_labels)]
             for candidate, top_pred, cand_pred, label in zip(
-                mention_candidates, pred, mention_preds, mention_labels):
-                result_str += f"{docs[i]+1:>4}; {mentions[i]:>3}; "\
-                            f"{mention_gt:>12}; {mention_accuracy:>3.1f}; " \
-                            f"{candidate:>12}; {label:>3.1f}; " \
-                            f"{top_pred:>3.1f}; {cand_pred}\n"
+                    mention_candidates, pred, mention_preds, mention_labels):
+                result_str += f"{docs[i] + 1:>4}; {mentions[i]:>3}; " \
+                              f"{mention_gt:>12}; {mention_accuracy:>3.1f}; " \
+                              f"{candidate:>12}; {label:>3.1f}; " \
+                              f"{top_pred:>3.1f}; {cand_pred}\n"
 
         i += n_data_points
 
@@ -93,7 +97,6 @@ def accuracy_over_candidates(preds, labels):
     :param labels: the correct true/false labels for each data point
     :returns: a scalar accuracy for this batch, averaged over candidates
     """
-    # TODO: Make this operate on Tensors
     pred_classes = np.argmax(preds, axis=1).flatten()
     return np.sum(pred_classes == labels.flatten()) / len(labels)
 
@@ -115,14 +118,14 @@ def read_result_and_evaluate(file: str = '/data/evaluation_result.csv'):
     with open(file) as f:
         # Skip header
         next(f)
-        for l in f:
-            col = l.split(';')
+        for line in f:
+            col = line.split(';')
             docs.append(int(col[0]))
             mentions.append(int(col[1].strip()))
             label = float(col[5].strip())
             logit = col[7].strip()[2:-1].split(' ')
             # Convert the logits (that are not empty string) to floats
-            logit = [float(l) for l in logit if l]
+            logit = [float(lo) for lo in logit if lo]
             labels.append(label)
             logits.append(logit)
 

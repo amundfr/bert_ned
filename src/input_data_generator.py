@@ -1,6 +1,18 @@
+"""
+Author: Amund Faller Råheim
+
+This class generates tokenized input data for BERT using Wikipedia abstracts.
+Uses document, mention and candidate information from ConllCandidatesGenerator.
+
+Requires:
+a tsv file with Wikidata ID, Wikipedia article title, and Wikipedia abstract
+    used as context for candidate entities
+a file with CoNLL documents, used as contextual data for the mention
+"""
+
 from os.path import isfile
 from math import floor
-from typing import Dict, List
+from typing import List
 import time
 
 from torch import BoolTensor, ShortTensor, cat
@@ -94,8 +106,7 @@ class InputDataGenerator:
             entity_span = entity_dict['Position']
             gt = entity_dict['GroundTruth']
 
-            # TODO: Add a flag for this.
-            # Filters out around 29 % of data (only negative labels)
+            # Filters out data with no label
             if gt == 'B':
                 continue
 

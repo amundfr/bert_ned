@@ -7,8 +7,7 @@ from src.dataset_generator import DatasetGenerator
 from src.bert_model import BertBinaryClassification, load_bert_from_file, \
     save_bert_to_file
 from src.trainer import ModelTrainer
-from src.evaluation import accuracy_over_mentions, accuracy_over_candidates, \
-    plot_training_stats, read_result_and_evaluate
+from src.evaluation import plot_training_stats, read_result_and_evaluate
 
 import torch
 import numpy as np
