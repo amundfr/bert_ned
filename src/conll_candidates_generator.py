@@ -83,7 +83,7 @@ class ConllCandidatesGenerator:
         self.get_kb()
         # The return variable. Stores the list of entities.
         entities = []
-        
+
         # Inner function to append a label_dict to the entities list
         def add_entity(entity_span_s, entity_span_e, entity_tokens, entity_gt):
             entity_text = ' '.join(entity_tokens)

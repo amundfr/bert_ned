@@ -28,6 +28,8 @@ class DatasetGenerator:
         self.balanced_dataset_to_doc = []
         self.dataset_to_entity = []
         self.balanced_dataset_to_entity = []
+        self.dataset_to_candidate = []
+        self.balanced_dataset_to_candidate = []
         # Subsets of a dataset defined in split_dataset
         self.train_dataset = None
         self.val_dataset = None
@@ -115,12 +117,26 @@ class DatasetGenerator:
                                 self.token_type_ids, self.labels)
         return self.dataset
 
-    def get_dataset_to_doc_and_entity(self, docs_entities: List = None):
-        if self.dataset_to_doc and self.dataset_to_entity:
-            return self.dataset_to_doc, self.dataset_to_entity
+    def get_dataset_to_x(self, docs_entities: List = None):
+        """
+        Iterating the docs_entities list of mentions, 
+        this function generates the mapping of the dataset (unsplit)
+        to doc index, mention index (starting at 0 from each doc),
+        and the candidate ID. 
+        
+        This is also accomplished in get_balanced_dataset,
+        but much faster if the balanced dataset is not desired.
+
+        :returns: three lists of the length of the dataset with
+            doc indices, in-doc mention indices, and candidate IDs
+        """
+        if self.dataset_to_doc and self.dataset_to_entity and self.dataset_to_candidate:
+            return self.dataset_to_doc, self.dataset_to_entity, self.dataset_to_candidate
         else:
             self.dataset_to_doc = []
             self.dataset_to_entity = []
+            self.dataset_to_candidate = []
+
             for i_doc, doc_entities in enumerate(docs_entities):
                 # Iterate Named Entities in current doc
                 for i_entity, entity_info in enumerate(doc_entities):
@@ -129,8 +145,8 @@ class DatasetGenerator:
                         # All these candidates belong to current doc
                         self.dataset_to_doc.extend([i_doc] * len(entity_info['Candidates']))
                         self.dataset_to_entity.extend([i_entity] * len(entity_info['Candidates']))
-            return self.dataset_to_doc, self.dataset_to_entity
-
+                        self.dataset_to_candidate.extend(entity_info['Candidates'])
+            return self.dataset_to_doc, self.dataset_to_entity, self.dataset_to_candidate
 
     def get_balanced_dataset(self, docs_entities: List, n_neg: int = 1)\
             -> TensorDataset:
@@ -154,17 +170,21 @@ class DatasetGenerator:
                             Tensor().to(dtype=full_dataset[0][2].dtype),
                             Tensor().to(dtype=full_dataset[0][3].dtype)]
 
-        # List of which doc each data sample comes from. Same length as the respective datasets
+        # List of doc index for each datapoint in the datasets
         # For the full dataset
         self.dataset_to_doc = []
         # For the balanced_dataset
         self.balanced_dataset_to_doc = []
 
-        # List of which entity index in the respective dataset (full/balanced) each datapoint corresponds with
+        # List of entity index for each datapoint in the datasets
         # For the full dataset
         self.dataset_to_entity = []
         # For the balanced_dataset
         self.balanced_dataset_to_entity = []
+
+        # List of candidates for each datapoint in the datasets
+        self.dataset_to_candidate = []
+        self.balanced_dataset_to_candidate = []
 
         # Points at indices in the full dataset
         full_dataset_idx = 0
@@ -176,7 +196,8 @@ class DatasetGenerator:
 
                     # All these candidates belong to current doc
                     self.dataset_to_doc.extend([i_doc] * len(entity_info['Candidates']))
-                    self.dataset_to_entity.append(i_entity)
+                    self.dataset_to_entity.extend([i_entity] * len(entity_info['Candidates']))
+                    self.dataset_to_candidate.extend(entity_info['GroundTruth'])
 
                     # Add any positive datapoint (i.e. where candidate is ground truth)
                     if entity_info['GroundTruth'] in entity_info['Candidates']:
@@ -186,6 +207,7 @@ class DatasetGenerator:
                         # Keep track of which document and entity this comes from
                         self.balanced_dataset_to_doc.append(i_doc)
                         self.balanced_dataset_to_entity.append(i_entity)
+                        self.balanced_dataset_to_candidate.append(entity_info['GroundTruth'])
 
                         # Append to all four input vectors
                         for j in range(len(balanced_tensors)):
@@ -207,8 +229,9 @@ class DatasetGenerator:
                         cand_idx = full_dataset_idx + local_cand_idx
 
                         # Keep track of which document and entity this comes from
-                        self.balanced_dataset_to_doc.extend(i_doc)
+                        self.balanced_dataset_to_doc.append(i_doc)
                         self.balanced_dataset_to_entity.append(i_entity)
+                        self.balanced_dataset_to_candidate.append(random_cand)
 
                         # Append to all four input vectors
                         for j in range(len(balanced_tensors)):
@@ -246,7 +269,7 @@ class DatasetGenerator:
             dataset_to_doc = self.balanced_dataset_to_doc
             dataset = self.balanced_dataset
         else:
-            dataset_to_doc, _ = self.get_dataset_to_doc_and_entity(docs_entities)
+            dataset_to_doc, _, _ = self.get_dataset_to_x(docs_entities)
             dataset = self.get_tensor_dataset()
 
         # Number of different docs

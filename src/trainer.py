@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
-from os.path import isdir, join
+from os.path import isdir, isfile, join
 from collections import Counter
 from src.bert_model import BertBinaryClassification
 from transformers import AdamW, get_cosine_schedule_with_warmup
@@ -22,46 +22,85 @@ def format_time(elapsed):
     return str(datetime.timedelta(seconds=elapsed_rounded))
 
 
-def accuracy_over_entities(preds, labels, docs, entities):
+def accuracy_over_mentions(preds, labels, docs, mentions, candidates = None):
     """
     Calculate the accuracy of a classification prediction
-    over entities, using the argmax of the preds.
+    over mentions, using the argmax of the preds.
 
-    This is achieved by grouping by entities, and choosing the strongest (if any)
+    This is achieved by grouping by mentions, and choosing the strongest (if any)
     positive prediction as the only prediction of the True label.
 
     :param preds: logit predictions from the model
     :param labels: the correct true/false labels for each candidate/data point
     :param docs: list of the docs that the data points come from, to group data points
-    :param entities: list of the entities that the data points belong to, 
-        for grouping into accuracy over entities rather than candidates
-    :returns: a scalar accuracy for this batch, averaged over entities
+    :param mentions: list of the mentions that the data points belong to,
+        for grouping into accuracy over mentions rather than candidates
+    :param candidates: list of candidate names, aligned with the other lists.
+
+    :returns: a scalar accuracy for this batch, averaged over mentions,
+        and the full results as a csv table if candidates is provided.
     """
     assert len(preds) == len(labels)
     assert len(preds) == len(docs)
-    assert len(preds) == len(entities)
+    assert len(preds) == len(mentions)
 
-    # Counts number of data points for each candidate, 
-    #  identified by doc ID + entity ID
-    ctr = Counter(zip(docs, entities))
+    # Counts number of data points for each candidate,
+    #  identified by doc ID + mention ID
+    ctr = Counter(zip(docs, mentions))
     n = len(ctr)
-    
-    # Iterate the lists entity by entity:
+
+    # Preparing to return all the results as a csv table
+    result_str = ""
+    if candidates and len(candidates) == len(preds):
+        print("Found parameter 'docs_mentions'. "\
+              "Printing full results for the test set ...")
+        result_str = "doc; mention_i; mention; accuracy; "\
+                     "candidate; label; top_pred; prediction\n"
+    else:
+        candidates = None
+
+    # Iterate the lists mention by mention:
     tot_accuracy = 0
     i = 0
     while i < len(preds):
-        key = (docs[i], entities[i])
-        n_data_points = ctr[key]
-        entity_preds = preds[i:i+n_data_points]
-        entity_labels = labels[i:i+n_data_points]
-        # TODO: Pick the top True, or pick all that are True?
-        pred_true = np.argmax(entity_preds, axis=0)[1]
-        pred = np.eye(n_data_points)[pred_true]
-        entity_accuracy = np.sum(pred == entity_labels.flatten()) / n_data_points
-        tot_accuracy += entity_accuracy
+        # Mention identitifed by doc + mention in dataset
+        mention_key = (docs[i], mentions[i])
+        # Number of data points / candidates for this mention
+        n_data_points = ctr[mention_key]
+
+        # Get all predictions and labels for this mention
+        mention_preds = preds[i:i+n_data_points]
+        mention_labels = labels[i:i+n_data_points].flatten()
+        assert len(mention_labels[mention_labels==1.0]) <= 1
+
+        # Pick single top prediction that BERT thinks is True as candidate
+        pred_true = np.argmax(mention_preds, axis=0)[1]
+        # Check if BERT actually predicts this to be True:
+        if mention_preds[pred_true, 1] > 0:
+            # One-hot vector of the top prediction
+            pred = np.eye(n_data_points)[pred_true]
+        # Else, NO candidates are True
+        else:
+            pred = np.zeros(n_data_points)
+        # Accuracy for this mention
+        mention_accuracy = 1.0 if np.all(np.equal(pred, mention_labels)) else 0
+        tot_accuracy += mention_accuracy
+
+        # If in verbose mode
+        if candidates:
+            mention_candidates = candidates[i:i+n_data_points]
+            mention_gt = mention_candidates[np.argmax(mention_labels)]
+            for candidate, top_pred, cand_pred, label in zip(
+                mention_candidates, pred, mention_preds, mention_labels):
+                result_str += f"{docs[i]+1:>4}; {mentions[i]:>3}; "\
+                            f"{mention_gt:>12}; {mention_accuracy:>3.1f}; " \
+                            f"{candidate:>12}; {label:>3.1f}; " \
+                            f"{top_pred:>3.1f}; {cand_pred}\n"
+
         i += n_data_points
-    return tot_accuracy / n
-    
+
+    return tot_accuracy / n, result_str
+
 
 def accuracy_over_candidates(preds, labels):
     """
@@ -75,6 +114,41 @@ def accuracy_over_candidates(preds, labels):
     # TODO: Make this operate on Tensors
     pred_classes = np.argmax(preds, axis=1).flatten()
     return np.sum(pred_classes == labels.flatten()) / len(labels)
+
+
+def read_result_and_evaluate(file: str = '/data/evaluation_result.csv'):
+    """
+    Reads the file generated by test function when passing a docs_mentions.
+    This can be used as a shortcut to evaluate results without running the model.
+
+    :param file: path to the csv file containing the output from the test function.
+    """
+    if not isfile(file):
+        raise FileNotFoundError(f"Could not find file at {file}.")
+
+    docs = []
+    mentions = []
+    logits = []
+    labels = []
+    with open(file) as f:
+        # Skip header
+        next(f)
+        for l in f:
+            col = l.split(';')
+            docs.append(int(col[0]))
+            mentions.append(int(col[1].strip()))
+            label = float(col[5].strip())
+            logit = col[7].strip()[2:-1].split(' ')
+            # Convert the logits (that are not empty string) to floats
+            logit = [float(l) for l in logit if l]
+            labels.append(label)
+            logits.append(logit)
+
+    labels = np.expand_dims(np.array(labels), -1)
+    logits = np.array(logits)
+
+    avg_accuracy, _ = accuracy_over_mentions(logits, labels, docs, mentions)
+    print(f"Test accuracy: {avg_accuracy:.4f}")
 
 
 def plot_training_stats(training_stats, save_to_dir: str = None):
@@ -302,7 +376,7 @@ class ModelTrainer:
 
             # Report the final accuracy for this validation run.
             # total_eval_accuracy = 0
-            avg_val_accuracy = accuracy(logits, labels, docs_entities)
+            avg_val_accuracy = accuracy_over_candidates(logits, labels)
             print("  Accuracy: {0:.4f}".format(avg_val_accuracy))
 
             # Calculate the average loss over all of the batches.
@@ -353,24 +427,53 @@ class ModelTrainer:
         return training_stats
 
 
-    def test(self, dataset_to_docs, dataset_to_entities, test_update_freq: int = 50):
+    def test(self, dataset_to_doc, dataset_to_mention, \
+             test_update_freq: int = 50, \
+             dataset_to_candidate = None, result_file = '/data/evaluation_result.csv'):
         """
-        :param dataset_to_docs: A list of doc "IDs" 
-            for the total (i.e. not split) dataset.
-        :param dataset_to_entities: A list of entity "IDs" 
-            for the total (i.e. not split) dataset.
+        Evaluate the model with the test dataset.
+        Relies on mappings from data point to documents and mentions
+        in order to group data points over mentions.
+        If docs_mentions is provided, the functions prints the full result
+        of the evaluation to either sysout or result_file if provided.
+
+        :param dataset_to_doc: A list of doc "IDs"
+            for all datasets (not just training data).
+        :param dataset_to_mention: A list of mention "IDs"
+            for all datasets (not just training data).
         :param test_update_freq: how many batches to run before printing feedback
+        :param dataset_to_candidate: A list of candidates
+            for all datasets (not just training data).
+            If provided, enters a very verbose state, printing
+            full results of the prediction in a csv format.
+        :param result_file: Path to output file for full results.
+            Provide a false value if you don't want to save output to file.
         """
         print("Running Testing...")
 
-        total_loss, test_duration, logits, labels = self.run_epoch('test', test_update_freq)
+        total_loss, test_duration, preds, labels = self.run_epoch('test', test_update_freq)
 
         testdata_start = len(self.train_dataloader.dataset.indices) + \
                          len(self.validation_dataloader.dataset.indices)
-        docs = dataset_to_docs[testdata_start:testdata_start+len(labels)]
-        entities = dataset_to_entities[testdata_start:testdata_start+len(labels)]
-        # Average accuracy over batches
-        avg_accuracy = accuracy_over_entities(logits, labels, docs, entities)
+        docs = dataset_to_doc[testdata_start:testdata_start+len(labels)]
+        mentions = dataset_to_mention[testdata_start:testdata_start+len(labels)]
+        candidates = None
+        if dataset_to_candidate:
+            candidates = dataset_to_candidate[testdata_start:testdata_start+len(labels)]
+
+        # Average accuracy over mentions (uses full test dataset)
+        avg_accuracy, result_str = accuracy_over_mentions(preds, labels, docs, mentions, candidates)
+
+        if result_str:
+            if result_file:
+                result_dir = '/'.join(result_file.split('/')[:-1])
+                if isdir(result_dir):
+                    print(f"\nWriting results to file {result_file}\n")
+                    print(result_str, file=open(result_file, 'w'))
+                else:
+                    print(f"\nCould not print to {result_file}. Could not find parent directory {result_dir}.")
+            else:
+                print(result_str)
 
         # Average loss over batches.
         avg_loss = total_loss / len(self.test_dataloader)

@@ -4,8 +4,9 @@ import time
 from src.conll_candidates_generator import ConllCandidatesGenerator
 from src.input_data_generator import InputDataGenerator
 from src.dataset_generator import DatasetGenerator
-from src.bert_model import load_bert_from_file, save_bert_to_file, get_class_weights_tensor
-from src.trainer import ModelTrainer, plot_training_stats
+from src.bert_model import BertBinaryClassification, load_bert_from_file, \
+    save_bert_to_file, get_class_weights_tensor
+from src.trainer import ModelTrainer, plot_training_stats, read_result_and_evaluate
 
 import torch
 import numpy as np
@@ -109,15 +110,19 @@ def dataset_generation(config: ConfigParser):
                         float(config['TRAINING']['Test Set Size'])]
 
     dataset_generator = DatasetGenerator()
+    # If input vectors were generated in previous step,
+    #  and no instructions to read from file
     if not read_input and input_vectors:
         dataset_generator = DatasetGenerator(*input_vectors)
 
+    # Use balanced dataset
     if use_balanced_dataset:
         balanced_dataset_dir = config['INPUT VECTORS']['Balanced Dataset Dir']
-
+        # Reading previously generated dataset from file
         if read_input and balanced_dataset_dir:
             print("Reading balanced dataset from files ...")
             dataset_generator.read_balanced_dataset(balanced_dataset_dir)
+        # Generate balanced dataset
         else:
             n_neg_samples = config['INPUT VECTORS']['N Negative Samples']
             print("Generating balanced dataset ...")
@@ -127,25 +132,30 @@ def dataset_generation(config: ConfigParser):
                 dataset_generator.write_balanced_dataset_to_files(balanced_dataset_dir)
         print("Splitting dataset ...")
         dataset_generator.get_split_dataset(split_ratios, dataset='balanced')
+
         dataset_to_doc = dataset_generator.balanced_dataset_to_doc
         dataset_to_mention = dataset_generator.balanced_dataset_to_entity
+        dataset_to_candidate = dataset_generator.balanced_dataset_to_candidate
+    # Use full dataset
     else:
         vec_dir = config['INPUT VECTORS']['Input Vectors Dir']
+        # Reading previously generated dataset from file
         if read_input and vec_dir:
             print("Reading vectors ...")
             dataset_generator.read_from_directory(vec_dir)
         print("Splitting dataset ...")
         dataset_generator.get_split_dataset(split_ratios, dataset='full', docs_entities=docs_entities)
-        dataset_to_doc, dataset_to_mention = dataset_generator.get_dataset_to_doc_and_entity(docs_entities)
+
+        dataset_to_doc, dataset_to_mention, dataset_to_candidate = dataset_generator.get_dataset_to_x(docs_entities)
 
     print("Getting DataLoaders ...")
     train_loader, val_loader, test_loader = \
         dataset_generator.get_data_loaders(batch_size=int(config['TRAINING']['Batch Size']))
-    # neg, pos = dataset_generator.get_dataset_balance_info()
-    return train_loader, val_loader, test_loader, dataset_to_doc, dataset_to_mention
+
+    return train_loader, val_loader, test_loader, dataset_to_doc, dataset_to_mention, dataset_to_candidate
 
 
-train_loader, val_loader, test_loader, dataset_to_doc, dataset_to_mention = dataset_generation(config)
+train_loader, val_loader, test_loader, dataset_to_doc, dataset_to_mention, dataset_to_candidate = dataset_generation(config)
 
 
 # -- Generate BERT model ------------------------------------------------------
@@ -181,11 +191,20 @@ def training(config: ConfigParser):
     validation_update_freq = int(config['VERBOSITY']['Validation Update Frequency'])
     test_update_freq = int(config['VERBOSITY']['Test Update Frequency'])
 
-    handler = ModelTrainer(model, train_loader, val_loader, test_loader, epochs)
-    training_stats = handler.train(train_update_freq, validation_update_freq)
-    handler.test(dataset_to_doc, dataset_to_entity, test_update_freq)
-    plot_training_stats(training_stats, save_dir)
-    save_bert_to_file(model, save_dir)
+    train = True if epochs > 0 else False
+    try:
+        read_result_and_evaluate()
+    except FileNotFoundError as e:
+        print(e)
+        print("Continuing to train and test procedure.")
+        train = True
+
+    if train:
+        handler = ModelTrainer(model, train_loader, val_loader, test_loader, epochs)
+        training_stats = handler.train(train_update_freq, validation_update_freq)
+        save_bert_to_file(model, save_dir)
+        plot_training_stats(training_stats, save_dir)
+        handler.test(dataset_to_doc, dataset_to_mention, test_update_freq, dataset_to_candidate)
 
 
 training(config)
