@@ -155,9 +155,9 @@ class ModelTrainer:
 
             # If evaluating, get predictions and labels
             else:
-                _logits = logits.detach().cpu().numpy()
-                label_ids = b_labels.to('cpu').numpy()
-                epoch_logits = np.append(epoch_logits, _logits, axis=0)
+                np_logits = logits.detach().cpu().numpy()
+                label_ids = b_labels.cpu().numpy()
+                epoch_logits = np.append(epoch_logits, np_logits, axis=0)
                 epoch_labels = np.append(epoch_labels, label_ids, axis=0)
 
         epoch_duration = time.time()-t0
@@ -198,7 +198,7 @@ class ModelTrainer:
             training_duration = format_time(training_duration)
 
             print("\n  Average training loss: {0:.2f}".format(avg_train_loss))
-            print("  Training epcoh took: {:}".format(training_duration))
+            print("  Training epoch took: {:}".format(training_duration))
 
             # Perform one full pass over the validation set
 
@@ -232,7 +232,7 @@ class ModelTrainer:
 
             # Early stopping if validation loss doesn't improve sufficiently
             if epoch_i > 1:
-                delta_val_loss = training_stats[-2]['Valid. Accur'] - training_stats[-1]['Valid. Accur']
+                delta_val_loss = training_stats[-2]['Valid. Loss'] - training_stats[-1]['Valid. Loss']
 
                 if delta_val_loss < early_stopping_threshold:
                     print(f"Triggering early stopping after {epoch_i + 1} epoch: "

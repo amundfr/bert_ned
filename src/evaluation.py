@@ -60,9 +60,9 @@ def accuracy_over_mentions(preds, labels, docs, mentions, candidates=None):
         assert len(mention_labels[mention_labels == 1.0]) <= 1
 
         # Pick single top prediction that BERT thinks is True as candidate
-        pred_true = np.argmax(mention_preds, axis=0)[1]
+        pred_true = np.argmax(mention_preds, axis=0)[0]
         # Check if BERT actually predicts this to be True:
-        if mention_preds[pred_true, 1] > 0:
+        if mention_preds[pred_true] > 0:  # if mention_preds[pred_true, 1] > 0:
             # One-hot vector of the top prediction
             pred = np.eye(n_data_points)[pred_true]
         # Else, NO candidates are True

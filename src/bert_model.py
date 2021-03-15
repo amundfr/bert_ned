@@ -37,10 +37,10 @@ class BertBinaryClassification(BertPreTrainedModel):
     def __init__(self, config, use_cls=True):
         """
         :param config: a transformers Config object
-        :param use_cls: wether to use the CLS token for classification,
+        :param use_cls: whether to use the CLS token for classification,
                         or the hidden state of the last layer.
         """
-        self.num_labels = 2
+        self.num_labels = 1
         super().__init__(config, num_labels=self.num_labels)
 
         self.use_cls = use_cls
@@ -62,7 +62,7 @@ class BertBinaryClassification(BertPreTrainedModel):
 
         # If we're using extended sequence output
         else:
-            # Input dimension depending on numer of tokens encodings
+            # Input dimension depending on number of tokens encodings
             input_dim = config.hidden_size * 3
 
             cls_layers.append(nn.Linear(input_dim, config.hidden_size))
@@ -127,8 +127,9 @@ class BertBinaryClassification(BertPreTrainedModel):
 
         loss = None
         if labels is not None:
-            # Cross entropy loss with class weights
-            loss_fn = nn.CrossEntropyLoss(weight=self.class_weights)
+            # Cross entropy loss with class weights TODO: Pick one/Make configurable
+            # loss_fn = nn.CrossEntropyLoss(weight=self.class_weights)
+            loss_fn = nn.BCEWithLogitsLoss()
             loss = loss_fn(logits.view(-1, self.num_labels), labels.view(-1))
 
         if not return_dict:
