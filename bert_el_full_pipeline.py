@@ -6,7 +6,9 @@ from src.input_data_generator import InputDataGenerator
 from src.dataset_generator import DatasetGenerator
 from src.bert_model import BertBinaryClassification, load_bert_from_file, \
     save_bert_to_file, get_class_weights_tensor
-from src.trainer import ModelTrainer, plot_training_stats, read_result_and_evaluate
+from src.trainer import ModelTrainer
+from src.evaluation import accuracy_over_mentions, accuracy_over_candidates, \
+    plot_training_stats, read_result_and_evaluate
 
 import torch
 import numpy as np
