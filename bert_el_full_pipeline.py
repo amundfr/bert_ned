@@ -11,6 +11,10 @@ import torch
 import numpy as np
 import random
 
+
+# -- Setup --------------------------------------------------------------------
+
+
 # Set the seed value everywhere to make this reproducible
 seed_val = 42
 random.seed(seed_val)
@@ -19,6 +23,7 @@ torch.manual_seed(seed_val)
 torch.cuda.manual_seed_all(seed_val)
 
 
+# Wrapper function to time executions
 def timer(func):
     def wrapper(*args, **kwargs):
         print(f"----\n  Timing function ...\n----")
@@ -35,7 +40,8 @@ def timer(func):
 config = ConfigParser()
 config.read('config.ini')
 
-# --------------------------------------------------
+
+# -- Generate candidates for mentions in CoNLL dataset ------------------------
 
 
 @timer
@@ -58,7 +64,8 @@ def candidate_generation(config: ConfigParser):
 
 docs_entities, docs = candidate_generation(config)
 
-# --------------------------------------------------
+
+# -- Generate input vectors from CoNLL docs and Wikipedia abstracts -----------
 
 
 @timer
@@ -67,12 +74,14 @@ def input_data_generation(config: ConfigParser):
             wikipedia_abstracts_file=config['DATA']['Wikipedia Abstracts'],
             tokenizer_pretrained_id=config['BERT']['Model ID']
         )
+
     input_vectors = input_data_generator.generate_for_conll_data(
             docs=docs,
             docs_entities=docs_entities,
             max_len=int(config['BERT']['Max Sequence Length']),
             progress=True
         )
+
     del input_data_generator
     return input_vectors
 

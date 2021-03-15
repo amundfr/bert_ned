@@ -76,9 +76,8 @@ class ConllCandidatesGenerator:
             the position of the entity in the list of tokens of the document as a tuple (start, end),
             and a list of candidates, represented by their wikidata 'Q-ID'.
 
-        Note: This excludes any entities tagged with 'B', and thus have no ground truth.
         :param doc: a ConllDocument object where the tokens in the tokens list is tagged with WikiData IDs
-        :returns: a list over the tagged named entities (excluding tag 'B'), each a dictionary of
+        :returns: a list over the tagged named entities, each a dictionary of
                   ground truth, entity position, and candidates
         """
         self.get_kb()
