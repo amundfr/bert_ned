@@ -5,7 +5,7 @@ from src.conll_candidates_generator import ConllCandidatesGenerator
 from src.input_data_generator import InputDataGenerator
 from src.dataset_generator import DatasetGenerator
 from src.bert_model import BertBinaryClassification, load_bert_from_file, \
-    save_bert_to_file, get_class_weights_tensor
+    save_bert_to_file
 from src.trainer import ModelTrainer, plot_training_stats, read_result_and_evaluate
 
 import torch
@@ -46,7 +46,7 @@ config.read('config.ini')
 
 
 @timer
-def candidate_generation(config: ConfigParser):
+def candidate_generation():
     candidate_generator = ConllCandidatesGenerator(
             spacy_nlp_str=config['DATA']['Spacy NLP Model'],
             spacy_nlp_vocab_dir=config['DATA']['Spacy Vocab Dir'],
@@ -63,14 +63,14 @@ def candidate_generation(config: ConfigParser):
     return docs_entities, docs
 
 
-docs_entities, docs = candidate_generation(config)
+docs_entities, docs = candidate_generation()
 
 
 # -- Generate input vectors from CoNLL docs and Wikipedia abstracts -----------
 
 
 @timer
-def input_data_generation(config: ConfigParser):
+def input_data_generation():
     input_data_generator = InputDataGenerator(
             wikipedia_abstracts_file=config['DATA']['Wikipedia Abstracts'],
             tokenizer_pretrained_id=config['BERT']['Model ID']
@@ -87,17 +87,17 @@ def input_data_generation(config: ConfigParser):
     return input_vectors
 
 
-read_input = config['INPUT VECTORS']['Read Input Vectors From Dir']
+read_input = config.getboolean('INPUT VECTORS', 'Read Input Vectors From Dir')
 input_vectors = None
 if not read_input:
-    input_vectors = input_data_generation(config)
+    input_vectors = input_data_generation()
 
 
 # -- Read or generate BERT input vectors, and other info ----------------------
 
 
 @timer
-def dataset_generation(config: ConfigParser):
+def dataset_generation():
     read_input = config.getboolean('INPUT VECTORS', 'Read Input Vectors From Dir')
     use_balanced_dataset = config.getboolean('INPUT VECTORS', 'Use Balanced Dataset')
 
@@ -125,7 +125,9 @@ def dataset_generation(config: ConfigParser):
         # Generate balanced dataset
         else:
             n_neg_samples = config['INPUT VECTORS']['N Negative Samples']
-            print("Generating balanced dataset ...")
+            n_neg_samples = int(n_neg_samples) if n_neg_samples else 1
+
+            print(f"Generating balanced dataset with ratio 1:{n_neg_samples} ...")
             dataset_generator.get_balanced_dataset(docs_entities, n_neg_samples)
             if balanced_dataset_dir:
                 print("Writing balanced dataset to files ...")
@@ -155,14 +157,14 @@ def dataset_generation(config: ConfigParser):
     return train_loader, val_loader, test_loader, dataset_to_doc, dataset_to_mention, dataset_to_candidate
 
 
-train_loader, val_loader, test_loader, dataset_to_doc, dataset_to_mention, dataset_to_candidate = dataset_generation(config)
+train_loader, val_loader, test_loader, dataset_to_doc, dataset_to_mention, dataset_to_candidate = dataset_generation()
 
 
 # -- Generate BERT model ------------------------------------------------------
 
 
 @timer
-def model_generation(config: ConfigParser):
+def model_generation():
     model_dir = config['BERT']['Bert Model Dir']
     if model_dir:
         model = load_bert_from_file(model_dir)
@@ -176,14 +178,14 @@ def model_generation(config: ConfigParser):
 
     return model
 
-model = model_generation(config)
+model = model_generation()
 
 
 # -- Train and test -----------------------------------------------------------
 
 
 @timer
-def training(config: ConfigParser):
+def training():
     epochs = int(config['TRAINING']['Epochs'])
     save_dir = config['BERT']['Save Model Dir']
 
@@ -207,4 +209,4 @@ def training(config: ConfigParser):
         handler.test(dataset_to_doc, dataset_to_mention, test_update_freq, dataset_to_candidate)
 
 
-training(config)
+training()
