@@ -82,7 +82,7 @@ class ModelTrainer:
         total_loss = 0
 
         # Used if in evaluation mode (type 'validation' or 'test')
-        epoch_logits = np.ndarray((0, 2))
+        epoch_logits = np.ndarray((0, 1))
         epoch_labels = np.ndarray((0, 1))
 
         # Setup for different epoch modes

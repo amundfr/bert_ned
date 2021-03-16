@@ -53,7 +53,7 @@ def candidate_generation():
             spacy_nlp_vocab_dir=config['DATA']['Spacy Vocab Dir'],
             spacy_kb_file=config['DATA']['Spacy KB']
         )
-    # candidate_generator.get_entities_and_candidates(config['DATA']['Conll Annotated'])
+
     candidate_generator.read_entities_info(config['DATA']['Candidate Info'])
     candidate_generator.print_candidate_stats()
 
@@ -205,8 +205,13 @@ def training():
     if train:
         handler = ModelTrainer(model, train_loader, val_loader, test_loader, epochs)
         training_stats = handler.train(train_update_freq, validation_update_freq)
-        save_bert_to_file(model, save_dir)
-        plot_training_stats(training_stats, save_dir)
+        if save_dir:
+            save_bert_to_file(model, save_dir)
+        if len(training_stats) > 1:
+            if save_dir:
+                plot_training_stats(training_stats, save_dir)
+            else:
+                plot_training_stats(training_stats)
         handler.test(dataset_to_doc, dataset_to_mention, test_update_freq, dataset_to_candidate)
 
 

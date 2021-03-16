@@ -130,7 +130,7 @@ class BertBinaryClassification(BertPreTrainedModel):
             # Cross entropy loss with class weights TODO: Pick one/Make configurable
             # loss_fn = nn.CrossEntropyLoss(weight=self.class_weights)
             loss_fn = nn.BCEWithLogitsLoss()
-            loss = loss_fn(logits.view(-1, self.num_labels), labels.view(-1))
+            loss = loss_fn(logits.view(-1), labels.view(-1).to(dtype=torch.float))
 
         if not return_dict:
             output = (logits,) + outputs[2:]
