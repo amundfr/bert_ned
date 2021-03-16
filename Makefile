@@ -1,6 +1,6 @@
 help:
 	@echo ""
-	@echo "Avaliable make commands are:"
+	@echo "Available make commands are:"
 	@echo " help                  : prints this message"
 	@echo " run                   : runs the python script (recommended inside container, try build first)"
 	@echo " clean                 : removes files and folders created during run"
@@ -32,17 +32,17 @@ docker-build:
 	docker build -t raheim/bert_el .
 
 wharfer-run-container:
-	wharfer run -v /local/data/raheim/models:/models -v /local/data/raheim/data:/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/ex_data -it raheim/bert_el
+	wharfer run -v /local/data/raheim/models:/bert_el/models -v /local/data/raheim/data:/bert_el/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/bert_el/ex_data -it raheim/bert_el
 
 docker-run-container:
-	docker run -v /local/data/raheim/models:/models -v /local/data/raheim/data:/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/ex_data -it raheim/bert_el
+	docker run -v /local/data/raheim/models:/bert_el/models -v /local/data/raheim/data:/bert_el/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/bert_el/ex_data -it raheim/bert_el
 
 
 wharfer-run:
-	wharfer run -v /local/data/raheim/models:/models -v /local/data/raheim/data:/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/ex_data -it raheim/bert_el /bin/sh -c "python bert_el_full_pipeline.py"
+	wharfer run -v /local/data/raheim/models:/bert_el/models -v /local/data/raheim/data:/bert_el/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/bert_el/ex_data -it raheim/bert_el /bin/sh -c "python bert_el_full_pipeline.py"
 
 docker-run:
-	docker run -v /local/data/raheim/models:/models -v /local/data/raheim/data:/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/ex_data -it raheim/bert_el /bin/sh -c "python bert_el_full_pipeline.py"
+	docker run -v /local/data/raheim/models:/bert_el/models -v /local/data/raheim/data:/bert_el/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/bert_el/ex_data -it raheim/bert_el /bin/sh -c "python bert_el_full_pipeline.py"
 
 wharfer-all: wharfer-build wharfer-run
 

@@ -38,18 +38,18 @@ class ModelTrainer:
                  epochs: int = 3):
         self.model = model
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # Use Cuda if Cuda enabled GPU is available
+        self.device = torch.device("cpu")
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda")
+            print('Using device:', torch.cuda.get_device_name(0))
+        else:
+            print('Using CPU')
 
         # Model is moved to device in-place, but tensors are not:
         # Source: https://discuss.pytorch.org/t/model-move-to-device-gpu/105620
         self.model.to(self.device)
         self.model.set_class_weights(self.model.class_weights.to(self.device))
-
-        # Use Cuda if Cuda enabled GPU is available
-        if torch.cuda.is_available():
-            print('Using device:', torch.cuda.get_device_name(0))
-        else:
-            print('Using CPU')
 
         self.train_dataloader = train_dataloader
         self.validation_dataloader = validation_dataloader

@@ -37,8 +37,13 @@ class ConllCandidatesGenerator:
         self.docs = []
         self.docs_entities = []
 
-    def get_docs(self, f: str = 'conll-wikidata-iob-annotations'):
+    def get_docs(self, f: str = None):
         if not self.docs:
+            # Default file name
+            f = f if f else 'conll-wikidata-iob-annotations'
+            if not os.path.isfile(f):
+                raise FileNotFoundError(f"Could not find annotated CoNLL file {f}.")
+
             self.docs = list(conll_documents(f))
         return self.docs
 
@@ -64,6 +69,24 @@ class ConllCandidatesGenerator:
             self.kb.load_bulk(self.spacy_kb_file)
 
         return self.kb
+
+    def write_entities_info(self, f: str = "docs_entities_info.json"):
+        if self.docs_entities:
+            raise ValueError("ERROR: No candidates to write to file. "
+                  "Try the function 'get_candidates' first.")
+
+        print(f"Writing json to file {f} ...")
+        with open(f, 'w') as of:
+            json.dump(self.docs_entities, of)
+
+    def read_entities_info(self, f: str = "docs_entities_info.json"):
+        if not os.path.isfile(f):
+            raise FileNotFoundError(f"Could not find file {f}. "
+                  "Try the function write_candidate_info first.")
+
+        print("Reading from file...")
+        with open(f, 'r') as inf:
+            self.docs_entities = json.load(inf)
 
     def generate_candidates_for_doc(self, doc: ConllDocument) -> List[Dict]:
         """
@@ -162,26 +185,6 @@ class ConllCandidatesGenerator:
                 self.del_kb()
 
         return self.docs_entities
-
-    def write_entities_info(self, f: str = "docs_entities_info.json"):
-        if self.docs_entities:
-            print("ERROR: No candidates to write to file. "
-                  "Try the function 'get_candidates' first.")
-            return
-
-        print(f"Writing json to file {f} ...")
-        with open(f, 'w') as of:
-            json.dump(self.docs_entities, of)
-
-    def read_entities_info(self, f: str = "docs_entities_info.json"):
-        if not os.path.isfile(f):
-            print(f"Could not find file {f}. "
-                  "Try the function write_candidate_info first.")
-            return
-
-        print("Reading from file...")
-        with open(f, 'r') as inf:
-            self.docs_entities = json.load(inf)
 
     def print_candidate_stats(self):
         if not self.docs_entities:
