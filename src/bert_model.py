@@ -8,7 +8,7 @@ A pretrained BERT model, or a reference to a pretrained Huggingface model
 """
 
 from typing import List
-from os.path import join
+from os.path import join, isdir
 import time
 
 import torch
@@ -172,13 +172,15 @@ class BertBinaryClassification(BertPreTrainedModel):
 
 
 def load_bert_from_file(model_path: str):
+    if not isdir(model_path):
+        raise FileNotFoundError(f"No BERT model at directory {model_path}.")
     model = BertBinaryClassification.from_pretrained(model_path, use_cls=False)
     return model
 
 
-def save_bert_to_file(model: BertBinaryClassification, dir: str):
+def save_bert_to_file(model: BertBinaryClassification, model_dir: str):
     sub_dir = "saved_" + time.strftime('%Y%m%d_%H%M', time.gmtime(time.time()))
-    model_dir = join(dir, sub_dir)
+    model_dir = join(model_dir, sub_dir)
     print(f"Saving model to directory: {model_dir}")
     model.save_pretrained(model_dir)
 
