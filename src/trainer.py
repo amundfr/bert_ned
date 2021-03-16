@@ -11,7 +11,7 @@ import numpy as np
 import torch
 
 from os.path import isdir
-from typing import List
+from typing import List, Tuple
 from src.bert_model import BertBinaryClassification
 from transformers import AdamW, get_cosine_schedule_with_warmup
 from torch.utils.data import DataLoader
@@ -163,10 +163,12 @@ class ModelTrainer:
         epoch_duration = time.time()-t0
         return total_loss, epoch_duration, epoch_logits, epoch_labels
 
-    def train(self, train_update_freq: int = 50, validation_update_freq: int = 50):
+    def train(self, train_update_freq: int = 50, validation_update_freq: int = 50, dataset_to_x: Tuple[List, List, List] = None):
         """
         :param train_update_freq: how many training batches to run before printing feedback
         :param validation_update_freq: how many validation batches to run before printing feedback
+        :param dataset_to_x: List of dataset_to_ doc/mention/candidate.
+            If provided, allows more accuracy accuracy.
         """
         # Holds some metrics on the duration and result of the training and validation
         training_stats = []
@@ -208,15 +210,25 @@ class ModelTrainer:
 
             validation_duration = format_time(eval_duration)
 
-            # Report the final accuracy for this validation run.
-            avg_val_accuracy = accuracy_over_candidates(val_logits, val_labels)
-            print("  Accuracy: {0:.4f}".format(avg_val_accuracy))
+            if dataset_to_x:
+                # Report the final accuracy for this validation run.
+                valdata_start = len(self.train_dataloader.dataset.indices)
+                valdata_end = valdata_start + len(self.validation_dataloader.dataset.indices)
+                docs = dataset_to_x[0][valdata_start:valdata_end]
+                mentions = dataset_to_x[1][valdata_start:valdata_end]
+                candidates = dataset_to_x[2][valdata_start:valdata_end]
+
+                avg_mention_accuracy, _ = accuracy_over_mentions(val_logits, val_labels, docs, mentions, candidates)
+                print(f"  Mention accuracy: {avg_mention_accuracy:.4f}")
+
+            avg_candidate_accuracy = accuracy_over_candidates(val_logits, val_labels)
+            print("  Accuracy: {avg_candidate_accuracy:.4f}")
 
             # Calculate the average loss over all of the batches.
             avg_val_loss = total_eval_loss / len(self.validation_dataloader)
 
-            print("  Validation Loss: {0:.2f}".format(avg_val_loss))
-            print("  Validation took: {:}".format(validation_duration))
+            print("  Validation Loss: {avg_val_loss:.2f}")
+            print("  Validation took: {validation_duration:}")
 
             # Record all statistics from this epoch.
             training_stats.append(
@@ -224,7 +236,7 @@ class ModelTrainer:
                     'epoch': epoch_i + 1,
                     'Training Loss': avg_train_loss,
                     'Valid. Loss': avg_val_loss,
-                    'Valid. Accur.': avg_val_accuracy,
+                    'Valid. Accur.': avg_candidate_accuracy,
                     'Training Time': training_duration,
                     'Validation Time': validation_duration
                 }

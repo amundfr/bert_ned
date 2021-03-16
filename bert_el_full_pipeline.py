@@ -204,7 +204,8 @@ def training():
 
     if train:
         handler = ModelTrainer(model, train_loader, val_loader, test_loader, epochs)
-        training_stats = handler.train(train_update_freq, validation_update_freq)
+        dataset_to_x = (dataset_to_doc, dataset_to_mention, dataset_to_candidate)
+        training_stats = handler.train(train_update_freq, validation_update_freq, dataset_to_x)
         if save_dir:
             save_bert_to_file(model, save_dir)
         if len(training_stats) > 1:
