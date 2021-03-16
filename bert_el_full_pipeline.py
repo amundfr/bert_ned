@@ -154,11 +154,11 @@ def dataset_generation():
     print("Getting DataLoaders ...")
     train_loader, val_loader, test_loader = \
         dataset_generator.get_data_loaders(batch_size=int(config['TRAINING']['Batch Size']))
+    pos, neg = dataset_generator.get_dataset_balance_info()
+    return train_loader, val_loader, test_loader, dataset_to_doc, dataset_to_mention, dataset_to_candidate, pos, neg
 
-    return train_loader, val_loader, test_loader, dataset_to_doc, dataset_to_mention, dataset_to_candidate
 
-
-train_loader, val_loader, test_loader, dataset_to_doc, dataset_to_mention, dataset_to_candidate = dataset_generation()
+train_loader, val_loader, test_loader, dataset_to_doc, dataset_to_mention, dataset_to_candidate, pos, neg = dataset_generation()
 
 
 # -- Generate BERT model ------------------------------------------------------
@@ -176,7 +176,7 @@ def model_generation():
     freeze_n_transformers = config['TRAINING']['Freeze N Transformers']
     freeze_n_transformers = int(freeze_n_transformers) if freeze_n_transformers else 12
     model.freeze_n_transformers(freeze_n_transformers)
-
+    model.set_class_weights(neg/pos * torch.ones([1]))
     return model
 
 model = model_generation()

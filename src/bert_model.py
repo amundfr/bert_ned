@@ -75,7 +75,7 @@ class BertBinaryClassification(BertPreTrainedModel):
 
         # Used in CrossEntropyLoss function to counteract unbalanced training sets
         # Can be changed with self.set_class_weights
-        self.class_weights = Tensor([1, 1])
+        self.class_weights = torch.ones([1])
 
         self.init_weights()
 
@@ -129,7 +129,7 @@ class BertBinaryClassification(BertPreTrainedModel):
         if labels is not None:
             # Cross entropy loss with class weights TODO: Pick one/Make configurable
             # loss_fn = nn.CrossEntropyLoss(weight=self.class_weights)
-            loss_fn = nn.BCEWithLogitsLoss()
+            loss_fn = nn.BCEWithLogitsLoss(pos_weight=self.class_weights)
             loss = loss_fn(logits.view(-1), labels.view(-1).to(dtype=torch.float))
 
         if not return_dict:
