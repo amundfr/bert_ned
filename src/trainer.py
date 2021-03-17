@@ -187,8 +187,8 @@ class ModelTrainer:
 
             # Perform one full pass over the training set
 
-            print('\n======== Epoch {:} / {:} ========'.format(epoch_i + 1, self.epochs))
-            print('\nTraining...')
+            print(f"\n======== Epoch {epoch_i + 1} / {self.epochs} ========")
+            print("\nTraining...")
 
             # Measure how long the training epoch takes.
             total_train_loss, training_duration, _, _ = self.run_epoch('train', train_update_freq)
@@ -199,8 +199,8 @@ class ModelTrainer:
             # Measure how long this epoch took.
             training_duration = format_time(training_duration)
 
-            print("\n  Average training loss: {0:.2f}".format(avg_train_loss))
-            print("  Training epoch took: {:}".format(training_duration))
+            print(f"\n  Average training loss: {avg_train_loss:.2f}")
+            print(f"  Training epoch took: {training_duration}")
 
             # Perform one full pass over the validation set
 
@@ -222,13 +222,13 @@ class ModelTrainer:
                 print(f"  Mention accuracy: {avg_mention_accuracy:.4f}")
 
             avg_candidate_accuracy = accuracy_over_candidates(val_logits, val_labels)
-            print("  Accuracy: {avg_candidate_accuracy:.4f}")
+            print(f"  Accuracy: {avg_candidate_accuracy:.4f}")
 
             # Calculate the average loss over all of the batches.
             avg_val_loss = total_eval_loss / len(self.validation_dataloader)
 
-            print("  Validation Loss: {avg_val_loss:.2f}")
-            print("  Validation took: {validation_duration:}")
+            print(f"  Validation Loss: {avg_val_loss:.2f}")
+            print(f"  Validation took: {validation_duration:}")
 
             # Record all statistics from this epoch.
             training_stats.append(
@@ -253,7 +253,7 @@ class ModelTrainer:
 
         print("\nTraining complete!")
 
-        print("Total training took {:} (h:mm:ss)".format(format_time(time.time() - total_t0)))
+        print(f"Total training took {format_time(time.time() - total_t0)} (h:mm:ss)")
 
         stats_h1 = "      Training            |    Validation"
         stats_h2 = "Epoch |   Time   |  Loss  |   Time   |  Loss  | Accuracy "
@@ -272,7 +272,7 @@ class ModelTrainer:
         return training_stats
 
     def test(self, dataset_to_doc: List, dataset_to_mention: List, test_update_freq: int = 50,
-             dataset_to_candidate: List = None, result_file: str = '/data/evaluation_result.csv'):
+             dataset_to_candidate: List = None, result_file: str = 'data/evaluation_result.csv'):
         """
         Evaluate the model with the test dataset.
         Relies on mappings from data point to documents and mentions
