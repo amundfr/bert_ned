@@ -179,6 +179,7 @@ def model_generation():
     model.set_class_weights(neg/pos * torch.ones([1]))
     return model
 
+
 model = model_generation()
 
 

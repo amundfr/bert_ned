@@ -38,8 +38,8 @@ def accuracy_over_mentions(preds, labels, docs, mentions, candidates=None):
     # Preparing to return all the results as a csv table
     result_str = ""
     if candidates and len(candidates) == len(preds):
-        print("Found parameter 'docs_mentions'. "
-              "Printing full results for the test set ...")
+        print("Found parameter 'candidates'. "
+              "Returning full results for the evaluation ...")
         result_str = "doc; mention_i; mention; accuracy; " \
                      "candidate; label; top_pred; prediction\n"
     else:
