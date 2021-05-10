@@ -12,25 +12,9 @@ from os.path import join, isdir
 import time
 
 import torch
-from torch import Tensor
 from torch import nn
 from transformers import BertPreTrainedModel, BertModel
 from transformers.modeling_outputs import SequenceClassifierOutput
-
-
-# Alternative to transformers' ACT2FN in module activations
-# Maps to a layer extending torch.nn.Module, instead of a function
-# This is in order to use it in a nn.Sequential pipeline
-# TODO Put into classifier again
-ACT2LAYER = {
-    "relu": nn.ReLU(),
-    # "silu": nn.SiLU(),    # Not available in pytorch 1.6
-    # "swish": nn.SiLU(),
-    "gelu": nn.GELU(),
-    "tanh": nn.Tanh(),
-    "linear": nn.Identity(),
-    "sigmoid": nn.Sigmoid(),
-}
 
 
 class BertBinaryClassification(BertPreTrainedModel):
@@ -73,7 +57,7 @@ class BertBinaryClassification(BertPreTrainedModel):
         # The classifier:
         self.classifier = nn.Sequential(*cls_layers)
 
-        # Used in CrossEntropyLoss function to counteract unbalanced training sets
+        # Used in BCEWithLogitsLoss function to counteract unbalanced training sets
         # Can be changed with self.set_class_weights
         self.class_weights = torch.ones([1])
 
@@ -127,8 +111,7 @@ class BertBinaryClassification(BertPreTrainedModel):
 
         loss = None
         if labels is not None:
-            # Cross entropy loss with class weights TODO: Pick one/Make configurable
-            # loss_fn = nn.CrossEntropyLoss(weight=self.class_weights)
+            # Binary cross entropy loss with class weights and sigmoid
             loss_fn = nn.BCEWithLogitsLoss(pos_weight=self.class_weights)
             loss = loss_fn(logits.view(-1), labels.view(-1).to(dtype=torch.float))
 
