@@ -24,25 +24,25 @@ clean:
 	rm -r ./model
 
 wharfer-build:
-	wharfer build -t raheim/bert_el .
+	wharfer build -t raheim/bert_ned .
 
 build: wharfer-build
 
 docker-build:
-	docker build -t raheim/bert_el .
+	docker build -t raheim/bert_ned .
 
 wharfer-run-container:
-	wharfer run -v /local/data/raheim/models:/bert_el/models -v /local/data/raheim/data:/bert_el/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/bert_el/ex_data -it raheim/bert_el
+	wharfer run -v /local/data/raheim/models:/bert_ned/models -v /local/data/raheim/data:/bert_ned/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/bert_ned/ex_data -it raheim/bert_ned
 
 docker-run-container:
-	docker run -v /local/data/raheim/models:/bert_el/models -v /local/data/raheim/data:/bert_el/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/bert_el/ex_data -it raheim/bert_el
+	docker run -v /local/data/raheim/models:/bert_ned/models -v /local/data/raheim/data:/bert_ned/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/bert_ned/ex_data -it raheim/bert_ned
 
 
 wharfer-run:
-	wharfer run -v /local/data/raheim/models:/bert_el/models -v /local/data/raheim/data:/bert_el/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/bert_el/ex_data -it raheim/bert_el /bin/sh -c "python bert_el_full_pipeline.py"
+	wharfer run -v /local/data/raheim/models:/bert_ned/models -v /local/data/raheim/data:/bert_ned/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/bert_ned/ex_data -it raheim/bert_ned /bin/sh -c "python bert_ned_full_pipeline.py"
 
 docker-run:
-	docker run -v /local/data/raheim/models:/bert_el/models -v /local/data/raheim/data:/bert_el/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/bert_el/ex_data -it raheim/bert_el /bin/sh -c "python bert_el_full_pipeline.py"
+	docker run -v /local/data/raheim/models:/bert_ned/models -v /local/data/raheim/data:/bert_ned/data -v /nfs/students/matthias-hertel/wiki_entity_linker:/bert_ned/ex_data -it raheim/bert_ned /bin/sh -c "python bert_ned_full_pipeline.py"
 
 wharfer-all: wharfer-build wharfer-run
 
@@ -51,4 +51,4 @@ all: wharfer-all
 docker-all: docker-run docker-build
 
 run:
-	python bert_el_full_pipeline.py
+	python bert_ned_full_pipeline.py
