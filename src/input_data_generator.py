@@ -45,7 +45,7 @@ class InputDataGenerator:
                   " or when calling read_wikipedia_abstracts.")
             return 0
         elif not isfile(f) and not isfile(self.wikipedia_abstracts_file):
-            print(f"Can't find wikipedia abstracts file.")
+            print("Can't find wikipedia abstracts file.")
             return 0
         elif isfile(f):
             self.wikipedia_abstracts_file = f
