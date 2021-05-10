@@ -16,7 +16,7 @@ from src.bert_model import BertBinaryClassification
 from transformers import AdamW, get_cosine_schedule_with_warmup
 from torch.utils.data import DataLoader
 from src.evaluation import accuracy_over_mentions, accuracy_over_candidates
-
+from src.bert_model import save_bert_to_file
 
 def format_time(elapsed):
     """
@@ -192,6 +192,8 @@ class ModelTrainer:
 
             # Measure how long the training epoch takes.
             total_train_loss, training_duration, _, _ = self.run_epoch('train', train_update_freq)
+
+            save_bert_to_file(self.model, 'models')
 
             # Calculate the average loss over all of the batches.
             avg_train_loss = total_train_loss / len(self.train_dataloader)

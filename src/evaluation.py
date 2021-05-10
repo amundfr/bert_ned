@@ -120,6 +120,8 @@ def read_result_and_evaluate(file: str = 'data/evaluation_result.csv'):
         next(f)
         for line in f:
             col = line.split(';')
+            if len(col) < 7:
+                break
             docs.append(int(col[0]))
             mentions.append(int(col[1].strip()))
             label = float(col[5].strip())
