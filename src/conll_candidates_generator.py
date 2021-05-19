@@ -6,9 +6,6 @@ It extracts mentions tagged with Wikidata IDs
 for use as a training corpus.
 
 Requires:
- * a Spacy language model like en_core_web_sm (12 MB) or en_core_web_lg (800 MB)
-    Can be obtained with e.g.
-    > python -m spacy download en_core_web_sm
  * a Spacy KnowledgeBase to yield candidates, and
  * a vocabulary for the Spacy KnowledgeBase
 """
@@ -17,7 +14,7 @@ from typing import Dict, List
 import json
 import os
 
-import spacy
+from spacy.vocab import Vocab
 from spacy.kb import KnowledgeBase
 
 from lib.wel_minimal.conll_benchmark import ConllDocument, conll_documents
@@ -25,10 +22,9 @@ from lib.wel_minimal.conll_benchmark import ConllDocument, conll_documents
 
 class ConllCandidatesGenerator:
     def __init__(self,
-                 spacy_nlp_str: str = "en_core_web_sm",
                  spacy_nlp_vocab_dir: str = "data/vocab",
                  spacy_kb_file: str = "data/kb"):
-        self.spacy_nlp_str = spacy_nlp_str
+        # self.spacy_nlp_str = spacy_nlp_str
         self.spacy_nlp_vocab_dir = spacy_nlp_vocab_dir
         self.spacy_kb_file = spacy_kb_file
 
@@ -59,14 +55,11 @@ class ConllCandidatesGenerator:
         Makes sure the kb is initialized
         """
         if not self.kb:
-            print("Loading spacy model...")
-            nlp = spacy.load(self.spacy_nlp_str)
-
             print("Loading vocabulary...")
-            nlp.vocab.from_disk(self.spacy_nlp_vocab_dir)
+            vocab = Vocab().from_disk(self.spacy_nlp_vocab_dir)
 
             print("Loading KB...")
-            self.kb = KnowledgeBase(vocab=nlp.vocab)
+            self.kb = KnowledgeBase(vocab=vocab)
             self.kb.load_bulk(self.spacy_kb_file)
 
         return self.kb

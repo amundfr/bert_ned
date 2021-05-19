@@ -49,7 +49,6 @@ config.read('config.ini')
 @timer
 def candidate_generation():
     candidate_generator = ConllCandidatesGenerator(
-            spacy_nlp_str=config['DATA']['Spacy NLP Model'],
             spacy_nlp_vocab_dir=config['DATA']['Spacy Vocab Dir'],
             spacy_kb_file=config['DATA']['Spacy KB']
         )
