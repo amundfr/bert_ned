@@ -53,7 +53,7 @@ class InputDataGenerator:
         print("\nReading Wikipedia abstracts from file...")
         for i_line, line in enumerate(open(self.wikipedia_abstracts_file, 'r')):
             if i_line % 10 ** 6 == 0:
-                print(f"Read {i_line: >9,} lines")
+                print(f"Read {i_line: >9,} lines", end='\r')
             values = line[:-1].split('\t')
             self.wikipedia_abstracts[values[0]] = (values[1], values[2].strip())
 
@@ -79,10 +79,11 @@ class InputDataGenerator:
         I.e. for each named entity, a different data point
         is yielded for each candidate
 
-        :param document:
-        :param doc_entities:
+        :param document: a ConllDocument object
+        :param doc_entities: a list of dicts
         :param max_len: maximum length of a returned vector
-        :returns:
+        :returns: Tuple of: Three tensors with input_ids, attention_mask, 
+                    token_type_ids, and a boolean label
         """
         input_ids = []
         attention_mask = []

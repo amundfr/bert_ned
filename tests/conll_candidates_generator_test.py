@@ -1,8 +1,5 @@
 import unittest
 from configparser import ConfigParser
-# import os
-# import sys
-# sys.path.append(os.getcwd())
 
 from src.conll_candidates_generator import ConllCandidatesGenerator
 from lib.wel_minimal.conll_benchmark import conll_documents
