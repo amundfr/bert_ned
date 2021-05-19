@@ -1,15 +1,16 @@
 """
 Author: Amund Faller Råheim
 
-This class wraps a dataset of CoNLL documents with mentions tagged
-with Wikidata IDs for use as a training corpus.
+This class wraps a dataset of annotated CoNLL documents. 
+It extracts mentions tagged with Wikidata IDs 
+for use as a training corpus.
 
 Requires:
-a Spacy language model like en_core_web_sm (12 MB) or en_core_web_lg (800 MB)
+ * a Spacy language model like en_core_web_sm (12 MB) or en_core_web_lg (800 MB)
     Can be obtained with e.g.
     > python -m spacy download en_core_web_sm
-a Spacy KnowledgeBase to yield candidates,
-and a vocabulary for the Spacy KnowledgeBase
+ * a Spacy KnowledgeBase to yield candidates, and
+ * a vocabulary for the Spacy KnowledgeBase
 """
 
 from typing import Dict, List
@@ -164,7 +165,7 @@ class ConllCandidatesGenerator:
 
     def get_docs_entities(self, f: str = None, del_kb: bool = True) -> List[List[Dict]]:
         """
-        Iterates CoNLL documents and calls the
+        Iterates CoNLL documents and gets the cadidates for all mentions
         :param f: file with tagged conll documents
         :param del_kb: Whether to delete the KB object to free up space
         :returns: a list of dicts with lists of info about entities
