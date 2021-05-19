@@ -131,9 +131,7 @@ class DatasetGenerator:
         :returns: three lists of the length of the dataset with
             doc indices, in-doc mention indices, and candidate IDs
         """
-        if self.dataset_to_doc and self.dataset_to_entity and self.dataset_to_candidate:
-            return self.dataset_to_doc, self.dataset_to_entity, self.dataset_to_candidate
-        else:
+        if not (self.dataset_to_doc and self.dataset_to_entity and self.dataset_to_candidate):
             self.dataset_to_doc = []
             self.dataset_to_entity = []
             self.dataset_to_candidate = []
@@ -147,7 +145,7 @@ class DatasetGenerator:
                         self.dataset_to_doc.extend([i_doc] * len(entity_info['Candidates']))
                         self.dataset_to_entity.extend([i_entity] * len(entity_info['Candidates']))
                         self.dataset_to_candidate.extend(entity_info['Candidates'])
-            return self.dataset_to_doc, self.dataset_to_entity, self.dataset_to_candidate
+        return self.dataset_to_doc, self.dataset_to_entity, self.dataset_to_candidate
 
     def get_balanced_dataset(self, docs_entities: List, n_neg: int = 1) -> TensorDataset:
         """
