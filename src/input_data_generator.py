@@ -10,10 +10,10 @@ a tsv file with Wikidata ID, Wikipedia article title, and Wikipedia abstract
 a file with CoNLL documents, used as contextual data for the mention
 """
 
+import time
 from os.path import isfile
 from math import floor
 from typing import List
-import time
 
 from torch import BoolTensor, ShortTensor, cat
 from transformers import BertTokenizerFast
@@ -50,10 +50,7 @@ class InputDataGenerator:
         elif isfile(f):
             self.wikipedia_abstracts_file = f
 
-        print("\nReading Wikipedia abstracts from file...")
-        for i_line, line in enumerate(open(self.wikipedia_abstracts_file, 'r')):
-            if i_line % 10 ** 6 == 0:
-                print(f"Read {i_line: >9,} lines", end='\r')
+        for line in open(self.wikipedia_abstracts_file, 'r'):
             values = line[:-1].split('\t')
             self.wikipedia_abstracts[values[0]] = (values[1], values[2].strip())
 
@@ -73,7 +70,7 @@ class InputDataGenerator:
                             max_len: int = 512):
         """
         Function yields the three input vectors to BERT
-        for a given named entity-candidate pair in a CoNLL document,
+        for a given CoNLL document with a doc_entities list,
         its binary label ("are they the same?"),
         and the position in the tokens
         I.e. for each named entity, a different data point
@@ -151,8 +148,6 @@ class InputDataGenerator:
 
                 input_ids = [self.cls_id] + entity_tokens + [self.sep_id] + cand_tokens + [self.sep_id]
 
-                assert (len(input_ids) <= max_len), f"Too many tokens: {len(input_ids)} / {max_len}"
-
                 pad_len = max_len - len(input_ids)
 
                 attention_mask = [1] * len(input_ids) + [0] * pad_len
@@ -161,16 +156,12 @@ class InputDataGenerator:
 
                 token_type_ids = [0] * (2 + len(entity_tokens)) + [1] * (1 + len(cand_tokens)) + [0] * pad_len
 
-                assert (len(input_ids) == max_len)
-                assert (len(attention_mask) == max_len)
-                assert (len(token_type_ids) == max_len)
+                # Save in minimal format. Will need to be recast to torch.long for BERT
+                input_ids = ShortTensor(input_ids).unsqueeze(0)
+                attention_mask = BoolTensor(attention_mask).unsqueeze(0)
+                token_type_ids = BoolTensor(token_type_ids).unsqueeze(0)
 
-        # Save in minimal format. Will need to be recast to torch.long for BERT
-        input_ids = ShortTensor(input_ids).unsqueeze(0)
-        attention_mask = BoolTensor(attention_mask).unsqueeze(0)
-        token_type_ids = BoolTensor(token_type_ids).unsqueeze(0)
-
-        return input_ids, attention_mask, token_type_ids, label
+                yield input_ids, attention_mask, token_type_ids, label
 
     def generate_for_conll_data(self,
                                 docs: List,
@@ -195,9 +186,11 @@ class InputDataGenerator:
             if progress and (not i_doc == 0) and (i_doc % (n / 20) <= 1):
                 s_left = (n - i_doc) * (time.time() - t0) / i_doc
                 print(f"Progress: {i_doc:>6} / {n:} ({i_doc / n * 100: >4.1f} %)" +
-                      f" time left: {s_left / 3600:.0f}:{(s_left % 3600) / 60:2.0f}:{s_left % 60:2.0f} hh:mm:ss")
+                      f" time left: {s_left / 3600:.0f}:{(s_left % 3600) / 60:02.0f}:{s_left % 60:02.0f} hh:mm:ss", end='\r')
 
-            data.append(self.get_vectorized_data(doc_tuple[0], doc_tuple[1], max_len))
+            for vectors in self.get_vectorized_data(doc_tuple[0], doc_tuple[1], max_len):
+                assert len(vectors) == 4
+                data.append(vectors)
 
         # Save in minimal format. Will need to be recast to torch.long for BERT
         input_ids = cat([d[0] for d in data])

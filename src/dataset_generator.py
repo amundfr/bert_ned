@@ -8,6 +8,7 @@ Takes the output of InputDataGenerator as input.
 from typing import List, Tuple
 from random import sample
 from os.path import isdir, isfile, join
+from os import mkdir
 import json
 
 from torch.utils.data import TensorDataset, Subset, \
@@ -75,7 +76,9 @@ class DatasetGenerator:
         self.read_from_directory(self.file_dir)
 
     def write_to_files(self, vectors_dir: str = 'data/vectors'):
-        print(f"Writing vectors to directory {vectors_dir}...")
+        if not isdir(vectors_dir):
+            print(f"Making directory for vectors at {vectors_dir}")
+            mkdir(vectors_dir)
         save(self.input_ids, join(vectors_dir, self.file_names[0]))
         save(self.attention_mask, join(vectors_dir, self.file_names[1]))
         save(self.token_type_ids, join(vectors_dir, self.file_names[2]))
@@ -353,7 +356,7 @@ class DatasetGenerator:
         n_tots = []
         n_left_tokens = []
         n_right_tokens = []
-        for att, tt, label in zip(self.attention_mask, self.token_type_ids, self.labels):
+        for att, tt in zip(self.attention_mask, self.token_type_ids):
             n_tot = len(att[att])
             n_r = len(tt[tt])
             n_l = n_tot - n_r

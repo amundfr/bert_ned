@@ -34,10 +34,8 @@ class ConllCandidatesGenerator:
         self.docs = []
         self.docs_entities = []
 
-    def get_docs(self, f: str = None):
+    def get_docs(self, f: str = 'conll-wikidata-iob-annotations'):
         if not self.docs:
-            # Default file name
-            f = f if f else 'conll-wikidata-iob-annotations'
             if not os.path.isfile(f):
                 raise FileNotFoundError(f"Could not find annotated CoNLL file {f}.")
 
@@ -61,11 +59,11 @@ class ConllCandidatesGenerator:
             print("Loading KB...")
             self.kb = KnowledgeBase(vocab=vocab)
             self.kb.load_bulk(self.spacy_kb_file)
-
+            print("KB loaded!")
         return self.kb
 
     def write_entities_info(self, f: str = "docs_entities_info.json"):
-        if self.docs_entities:
+        if not self.docs_entities:
             raise ValueError("ERROR: No candidates to write to file. "
                   "Try the function 'get_candidates' first.")
 
@@ -76,11 +74,12 @@ class ConllCandidatesGenerator:
     def read_entities_info(self, f: str = "docs_entities_info.json"):
         if not os.path.isfile(f):
             raise FileNotFoundError(f"Could not find file {f}. "
-                  "Try the function write_candidate_info first.")
+                  "Try the function write_entities_info first.")
 
         print("Reading from file...")
         with open(f, 'r') as inf:
             self.docs_entities = json.load(inf)
+        return self.docs_entities
 
     def generate_candidates_for_doc(self, doc: ConllDocument) -> List[Dict]:
         """
@@ -171,7 +170,6 @@ class ConllCandidatesGenerator:
                 self.docs = []
 
             for conll_doc in self.get_docs(f):
-                self.docs.append(conll_doc)
                 self.docs_entities.append(self.generate_candidates_for_doc(conll_doc))
 
             if del_kb:
