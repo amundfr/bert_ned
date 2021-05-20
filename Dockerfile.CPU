@@ -1,0 +1,22 @@
+FROM ubuntu
+LABEL maintainers="Amund Faller Raheim raheim@informatik.uni-freiburg.de"
+
+RUN mkdir bert_ned
+
+WORKDIR /bert_ned
+
+COPY requirements.txt .
+
+RUN apt-get update
+RUN apt-get install -y python3 python3-pip
+
+RUN pip3 install --upgrade pip && \
+    pip3 install -r requirements.txt
+
+# Copy full build context to image
+COPY . /bert_ned
+
+# Build with
+# docker build -f Dockerfile.CPU -t bert_ned_cpu .
+# Run with
+# docker run -v /nfs/students/amund-faller-raheim/master_project_bert_ned/ex_data:/bert_ned/ex_data -v /nfs/students/amund-faller-raheim/master_project_bert_ned/data:/bert_ned/data -v /nfs/students/amund-faller-raheim/master_project_bert_ned/models:/bert_ned/models -it --name bert_ned bert_ned_cpu
