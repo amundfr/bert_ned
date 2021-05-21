@@ -1,0 +1,21 @@
+help:
+	@echo ""
+	@echo "Available make commands are:"
+	@echo " help              : prints this message"
+	@echo " data-generation   : runs the python script 'generate_input_data.py'"
+	@echo "                        (requires 10 GB RAM, and takes around 15 min)"
+	@echo " full              : runs main script for full pipeline"
+	@echo "                        (requires 10GB RAM, and a GPU for training,"
+	@echo "                         and takes over 5 hrs per epoch)"
+	@echo " unittest          : runs the python unittests "
+	@echo "                        (requires 5GB RAM, and takes 3 minutes)"
+	@echo ""
+
+data-generation:
+	python3 generate_input_data.py
+
+unittest:
+	python3 -m unittest tests/*_test.py
+
+full:
+	python3 bert_ned_full_pipeline.py

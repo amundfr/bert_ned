@@ -10,10 +10,17 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-# Copy full build context to image
-COPY . /bert_ned
+# Copy from build context to image
+COPY lib /bert_ned/lib
+COPY src /bert_ned/src
+COPY tests /bert_ned/tests
+COPY bert_ned_full_pipeline.py .
+COPY generate_input_data.py .
+COPY config.ini .
+COPY Makefile_scripts /bert_ned/Makefile
+COPY .bashrc /root/
 
 # Build image with
-# docker build -f Dockerfile.GPU -t bert_ned .
+# docker build -t bert_ned .
 # Run container with
 # docker run -v /nfs/students/amund-faller-raheim/master_project_bert_ned/ex_data:/bert_ned/ex_data -v /nfs/students/amund-faller-raheim/master_project_bert_ned/data:/bert_ned/data -v /nfs/students/amund-faller-raheim/master_project_bert_ned/models:/bert_ned/models -it --name bert_ned bert_ned
