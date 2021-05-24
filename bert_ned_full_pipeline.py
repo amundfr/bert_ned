@@ -1,4 +1,5 @@
 from configparser import ConfigParser
+import argparse
 import time
 
 from src.conll_candidates_generator import ConllCandidatesGenerator
@@ -42,6 +43,23 @@ def timer(func):
 config = ConfigParser()
 config.read('config.ini')
 
+parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=__doc__
+    )
+
+parser.add_argument(
+        "-r", "--read_input_data", action="store_true",
+        help="whether to use paths in 'config.ini' to read previously generated input data"
+    )
+
+parser.add_argument(
+        "-e", "--evaluate", action="store_true",
+        help="no training, only evaluate model read from path in 'config.ini'"
+    )
+
+args = parser.parse_args()
+print(f"args: {args}")
 
 # -- Generate candidates for mentions in CoNLL dataset ------------------------
 
@@ -53,7 +71,12 @@ def candidate_generation():
             spacy_kb_file=config['DATA']['Spacy KB']
         )
 
-    candidate_generator.read_entities_info(config['DATA']['Candidate Info'])
+    if args.read_input_data:
+        candidate_generator.read_entities_info(config['DATA']['Candidate Info'])
+    else:
+        docs_entities = candidate_generator.get_docs_entities(config['DATA']['Conll Annotated'])
+        candidate_generator.write_entities_info(config['DATA']['Candidate Info'])
+
     candidate_generator.print_candidate_stats()
 
     docs_entities = candidate_generator.get_docs_entities()
@@ -62,9 +85,9 @@ def candidate_generation():
     del candidate_generator
     return docs_entities, docs
 
-
+print(' 1. Candidate generation ...')
 docs_entities, docs = candidate_generation()
-
+print('  ... Candidate generation done!')
 
 # -- Generate input vectors from CoNLL docs and Wikipedia abstracts -----------
 
@@ -86,11 +109,13 @@ def input_data_generation():
     del input_data_generator
     return input_vectors
 
-
-read_input = config.getboolean('INPUT VECTORS', 'Read Input Vectors From Dir')
 input_vectors = None
-if not read_input:
+if args.read_input_data:
+    print(' 2. Input data generation ... Skipping!')
+else:
+    print(' 2. Input data generation ...')
     input_vectors = input_data_generation()
+    print('  ... Input data generation done!')
 
 
 # -- Read or generate BERT input vectors, and other info ----------------------
@@ -98,7 +123,7 @@ if not read_input:
 
 @timer
 def dataset_generation():
-    read_input = config.getboolean('INPUT VECTORS', 'Read Input Vectors From Dir')
+    # read_input = config.getboolean('INPUT VECTORS', 'Read Input Vectors From Dir')
     use_balanced_dataset = config.getboolean('INPUT VECTORS', 'Use Balanced Dataset')
 
     # Recommended CoNLL split, reverse engineered to ratios.
@@ -110,16 +135,17 @@ def dataset_generation():
                         float(config['TRAINING']['Test Set Size'])]
 
     dataset_generator = DatasetGenerator()
+
     # If input vectors were generated in previous step,
     #  and no instructions to read from file
-    if not read_input and input_vectors:
+    if not args.read_input_data and input_vectors:
         dataset_generator = DatasetGenerator(*input_vectors)
 
     # Use balanced dataset
     if use_balanced_dataset:
         balanced_dataset_dir = config['INPUT VECTORS']['Balanced Dataset Dir']
         # Reading previously generated dataset from file
-        if read_input and balanced_dataset_dir:
+        if args.read_input_data and balanced_dataset_dir:
             print("Reading balanced dataset from files ...")
             dataset_generator.read_balanced_dataset(balanced_dataset_dir)
         # Generate balanced dataset
@@ -142,7 +168,7 @@ def dataset_generation():
     else:
         vec_dir = config['INPUT VECTORS']['Input Vectors Dir']
         # Reading previously generated dataset from file
-        if read_input and vec_dir:
+        if args.read_input_data and vec_dir:
             print("Reading vectors ...")
             dataset_generator.read_from_directory(vec_dir)
         print("Splitting dataset ...")
@@ -157,7 +183,12 @@ def dataset_generation():
     return train_loader, val_loader, test_loader, dataset_to_doc, dataset_to_mention, dataset_to_candidate, pos, neg
 
 
-train_loader, val_loader, test_loader, dataset_to_doc, dataset_to_mention, dataset_to_candidate, pos, neg = dataset_generation()
+print(' 3. Data loader generation ...')
+train_loader, val_loader, test_loader, \
+    dataset_to_doc, dataset_to_mention, dataset_to_candidate, \
+        pos, neg \
+            = dataset_generation()
+print('  ... Data loader generation done!')
 
 
 # -- Generate BERT model ------------------------------------------------------
@@ -179,8 +210,9 @@ def model_generation():
     model.set_class_weights(neg/pos * torch.ones([1]))
     return model
 
-
+print(' 4. Model generation ...')
 model = model_generation()
+print('  ... Model generation done!')
 
 
 # -- Train and test -----------------------------------------------------------
@@ -195,26 +227,29 @@ def training():
     validation_update_freq = int(config['VERBOSITY']['Validation Update Frequency'])
     test_update_freq = int(config['VERBOSITY']['Test Update Frequency'])
 
-    train = True if epochs > 0 else False
-    try:
-        read_result_and_evaluate()
-    except FileNotFoundError as e:
-        print(e)
-        print("Continuing to train and test procedure.")
-        train = True
+    train = bool(epochs > 0 and not args.evaluate)
+    # try:
+    #     read_result_and_evaluate()
+    # except FileNotFoundError as e:
+    #     print(e)
+    #     print("Continuing to train and test procedure.")
+    #     train = True
 
+    handler = ModelTrainer(model, train_loader, val_loader, test_loader, epochs)
     if train:
-        handler = ModelTrainer(model, train_loader, val_loader, test_loader, epochs)
         dataset_to_x = (dataset_to_doc, dataset_to_mention, dataset_to_candidate)
         training_stats = handler.train(train_update_freq, validation_update_freq, dataset_to_x)
         if save_dir:
             save_bert_to_file(model, save_dir)
         if len(training_stats) > 1:
-            if save_dir:
-                plot_training_stats(training_stats, save_dir)
-            else:
-                plot_training_stats(training_stats)
-        handler.test(dataset_to_doc, dataset_to_mention, test_update_freq, dataset_to_candidate)
+            # if save_dir:
+            #     plot_training_stats(training_stats, save_dir)
+            # else:
+            plot_training_stats(training_stats)
+    
+    handler.test(dataset_to_doc, dataset_to_mention, test_update_freq, dataset_to_candidate)
 
 
+print(' 5. Training ...')
 training()
+print('  ... All done!')
