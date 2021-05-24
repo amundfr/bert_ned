@@ -18,7 +18,7 @@ COPY bert_ned_full_pipeline.py .
 COPY generate_input_data.py .
 COPY config.ini .
 COPY Makefile_scripts /bert_ned/Makefile
-COPY .bashrc /root/
+COPY bashrc /root/.bashrc
 
 # Build image with
 # docker build -t bert_ned .
