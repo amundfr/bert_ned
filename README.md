@@ -1,7 +1,20 @@
 
 # BERT for Named Entity Disambiguation — bert_ned
 
-## Make
+## TL;DR
+
+To build and run the container:
+```bash
+make wharfer-build && make wharfer-run
+```
+
+To run the full pipeline (data generation, training, evaluation) inside the container:
+```bash
+make full
+```
+
+
+## Makefile for Docker/Wharfer
 
 There are **shorthands** for the preceding Docker and Wharfer commands in a Makefile. Navigate to the directory with this repository and type `make help` for a list of instructions. 
 
@@ -14,7 +27,7 @@ Run the image on a machine with a Cuda-enabled GPU to train the model or use the
 Build the Docker image with GPU (7.27GB):
 
 ```bash
-docker build -t bert_ned_cpu .
+docker build -t bert_ned .
 ```
 
 For completeness, there is a CPU version of the Dockerfile (`Dockerfile.CPU`). The CPU container works for the data preparation scripts, but the model runs poorly on a CPU.
@@ -22,7 +35,7 @@ For completeness, there is a CPU version of the Dockerfile (`Dockerfile.CPU`). T
 Build without GPU (3.19GB):
 
 ```bash
-docker build -f Dockerfile.CPU -t bert_ned_gpu .
+docker build -f Dockerfile.CPU -t bert_ned_cpu .
 ```
 
 ## Docker run
@@ -32,10 +45,19 @@ To run the Docker image on an AD machine using files from /nfs/:
 docker run -v /nfs/students/amund-faller-raheim/master_project_bert_ned/data:/bert_ned/data \
            -v /nfs/students/amund-faller-raheim/master_project_bert_ned/ex_data:/bert_ned/ex_data \
            -v /nfs/students/amund-faller-raheim/master_project_bert_ned/models:/bert_ned/models \
-           -it --name bert_ned bert_ned_gpu
+           -it --name bert_ned bert_ned
 ```
 
-Please note: accessing files over NFS makes some of the operations quite slow. You can also copy the directories in /nfs/students/amund-faller-raheim/master_project_bert_ned to a local directory and mount those to the docker container.
+Please note: accessing files over NFS makes some of the operations quite slow. You can also copy the directories in /nfs/students/amund-faller-raheim/master_project_bert_ned to a local directory and mount those to the docker container. 
+
+E.g. `cp /nfs/students/amund-faller-raheim/master_project_bert_ned /local/data/$(whoami)/` and 
+
+```
+docker run -v /local/data/$(whoami)/data:/bert_ned/data \
+           -v /local/data/$(whoami)/ex_data:/bert_ned/ex_data \
+           -v /local/data/$(whoami)/models:/bert_ned/models \
+           -it --name bert_ned bert_ned
+```
 
 ## Run scripts in container
 
