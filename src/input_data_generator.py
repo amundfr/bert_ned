@@ -50,9 +50,11 @@ class InputDataGenerator:
         elif isfile(f):
             self.wikipedia_abstracts_file = f
 
+        print("Reading Wikipedia Abstracts File...", end='')
         for line in open(self.wikipedia_abstracts_file, 'r'):
             values = line[:-1].split('\t')
             self.wikipedia_abstracts[values[0]] = (values[1], values[2].strip())
+        print("Done!")
 
         return 1
 
