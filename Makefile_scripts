@@ -4,6 +4,10 @@ help:
 	@echo " help              : prints this message"
 	@echo " data-generation   : runs the python script 'generate_input_data.py'"
 	@echo "                        (requires 10 GB RAM, and takes around 15 min)"
+	@echo " train-read-data   : trains the model, but reads data from paths"
+	@echo "                         specified in 'config.ini'"
+	@echo " evaluate          : evaluate the model on the AIDA/CoNLL testset;"
+	@echo "                         loads a trained model and reads input data from files"
 	@echo " full              : runs main script for full pipeline"
 	@echo "                        (requires 10GB RAM, and a GPU for training,"
 	@echo "                         and takes over 5 hrs per epoch)"
@@ -13,6 +17,12 @@ help:
 
 data-generation:
 	python3 generate_input_data.py
+
+train-read-data:
+	python3 bert_ned_full_pipeline.py -r
+
+evaluate:
+	python3 bert_ned_full_pipeline.py -r -e
 
 unittest:
 	python3 -m unittest tests/*_test.py
