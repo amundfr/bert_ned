@@ -1,8 +1,8 @@
 """
 Author: Amund Faller Råheim
 
-This class wraps a dataset of annotated CoNLL documents. 
-It extracts mentions tagged with Wikidata IDs 
+This class wraps a dataset of annotated CoNLL documents.
+It extracts mentions tagged with Wikidata IDs
 for use as a training corpus.
 
 Requires:
@@ -21,9 +21,15 @@ from lib.wel_minimal.conll_benchmark import ConllDocument, conll_documents
 
 
 class ConllCandidatesGenerator:
-    def __init__(self,
-                 spacy_nlp_vocab_dir: str = "data/vocab",
-                 spacy_kb_file: str = "data/kb"):
+    def __init__(
+                self,
+                spacy_nlp_vocab_dir: str = "data/vocab",
+                spacy_kb_file: str = "data/kb"
+            ):
+        """
+        :param spacy_nlp_vocab_dir: path to directory with spaCy vocab files
+        :param spacy_kb_file: path to file with spaCy KnowledgeBase
+        """
         # self.spacy_nlp_str = spacy_nlp_str
         self.spacy_nlp_vocab_dir = spacy_nlp_vocab_dir
         self.spacy_kb_file = spacy_kb_file
@@ -34,23 +40,29 @@ class ConllCandidatesGenerator:
         self.docs = []
         self.docs_entities = []
 
-    def get_docs(self, f: str = 'conll-wikidata-iob-annotations'):
+    def get_docs(self, file: str = 'conll-wikidata-iob-annotations'):
+        """
+        :param file: path to file with Wikidata-annotated CoNLL dataset
+        :returns: self.docs, reading it from file if not loaded
+        """
         if not self.docs:
-            if not os.path.isfile(f):
-                raise FileNotFoundError(f"Could not find annotated CoNLL file {f}.")
+            if not os.path.isfile(file):
+                raise FileNotFoundError(
+                        f"Could not find annotated CoNLL file {file}."
+                    )
 
-            self.docs = list(conll_documents(f))
+            self.docs = list(conll_documents(file))
         return self.docs
 
     def del_kb(self):
         """
-        Frees up memory by deleting the self.kb
+        Frees up memory by deleting self.kb
         """
         self.kb = None
 
     def get_kb(self):
         """
-        Makes sure the kb is initialized
+        :returns: self.kb, reading it from file if not loaded
         """
         if not self.kb:
             print("Loading vocabulary...")
@@ -62,22 +74,36 @@ class ConllCandidatesGenerator:
             print("KB loaded!")
         return self.kb
 
-    def write_entities_info(self, f: str = "docs_entities_info.json"):
+    def write_entities_info(self, file: str = "docs_entities_info.json"):
+        """
+        Writes self.docs_entities to file.
+        File then contains all necessary candidate info,
+         which allows candidates to be read from file
+         with read_entities_info later
+        :param file: file destination of output file
+        """
         if not self.docs_entities:
             raise ValueError("ERROR: No candidates to write to file. "
                   "Try the function 'get_candidates' first.")
 
-        print(f"Writing json to file {f} ...")
-        with open(f, 'w') as of:
+        print(f"Writing json to file {file} ...")
+        with open(file, 'w') as of:
             json.dump(self.docs_entities, of)
 
-    def read_entities_info(self, f: str = "docs_entities_info.json"):
-        if not os.path.isfile(f):
-            raise FileNotFoundError(f"Could not find file {f}. "
+    def read_entities_info(self, file: str = "docs_entities_info.json"):
+        """
+        Read self.docs_entities from file, and returns self.docs_entities
+        File should be result of function write_entities_info,
+         and gives all necessary candidate info
+        :param file: path to file written by write_entities_info
+        :returns: self.docs_entities
+        """
+        if not os.path.isfile(file):
+            raise FileNotFoundError(f"Could not find file {file}. "
                   "Try the function write_entities_info first.")
 
         print("Reading from file...")
-        with open(f, 'r') as inf:
+        with open(file, 'r') as inf:
             self.docs_entities = json.load(inf)
         return self.docs_entities
 
@@ -87,11 +113,12 @@ class ConllCandidatesGenerator:
         (e.g. from conll_documents()).
 
         Outputs a list of dictionaries for each tagged named entity.
-        Each dict has the ground truth of the entity (as a 'Q-ID' from WikiData),
-            the position of the entity in the list of tokens of the document as a tuple (start, end),
+        Each dict has a dict of:
+            the ground truth of the entity (as a 'Q-ID' from WikiData),
+            the token position of the entity as a tuple (start, end),
             and a list of candidates, represented by their wikidata 'Q-ID'.
 
-        :param doc: a ConllDocument object where the tokens in the tokens list is tagged with WikiData IDs
+        :param doc: a ConllDocument object with tokens tagged with WikiData IDs
         :returns: a list over the tagged named entities, each a dictionary of
                   ground truth, entity position, and candidates
         """
@@ -114,8 +141,10 @@ class ConllCandidatesGenerator:
                 )
 
         # Helper variables for the iteration:
-        collected_tokens = []        # Tokens belonging to current entity
-        current_entity_tag = None    # Tag of the current entity (the ground truth)
+        # Tokens belonging to current entity
+        collected_tokens = []
+        # Tag of the current entity (the ground truth)
+        current_entity_tag = None
         # Position of the first entity token in the document tokens list
         span_start = None
 
@@ -155,7 +184,11 @@ class ConllCandidatesGenerator:
 
         return entities
 
-    def get_docs_entities(self, f: str = None, del_kb: bool = True) -> List[List[Dict]]:
+    def get_docs_entities(
+                self,
+                f: str = None,
+                del_kb: bool = True
+            ) -> List[List[Dict]]:
         """
         Iterates CoNLL documents and gets the cadidates for all mentions
         :param f: file with tagged conll documents
@@ -170,7 +203,9 @@ class ConllCandidatesGenerator:
                 self.docs = []
 
             for conll_doc in self.get_docs(f):
-                self.docs_entities.append(self.generate_candidates_for_doc(conll_doc))
+                self.docs_entities.append(
+                        self.generate_candidates_for_doc(conll_doc)
+                    )
 
             if del_kb:
                 print("Deleting Spacy KB object...")
@@ -179,6 +214,9 @@ class ConllCandidatesGenerator:
         return self.docs_entities
 
     def print_candidate_stats(self):
+        """
+        Prints metrics about generated candidates
+        """
         if not self.docs_entities:
             print("No candidates info.")
             return
@@ -223,15 +261,20 @@ class ConllCandidatesGenerator:
         n_cand = n_pos_labels + n_neg_labels
 
         print(f"{n_ne: >7,} named entities in total")
-        print(f"{n_cand: >7,} candidates in total (total number of data points)")
+        print(f"{n_cand: >7,} candidates in total "
+              f"(total number of data points)")
         print(f"{n_pos_labels: >7,} / {n_cand: >7,} positive labels "
               f"({100 * n_pos_labels / n_cand: >5.2f} % all all labels )")
         print(f"{n_neg_labels: >7,} / {n_cand: >7,} negative labels "
               f"({100 * n_neg_labels / n_cand: >5.2f} % all all labels )")
 
-        print(f"{n_no_cand: >7,} / {n_ne: >7,} named entities have no candidates")
-        print(f"{n_no_pos_labels: >7,} / {n_ne: >7,} named entities where correct label is not among candidates")
-        print(f"{n_ne_in_kb: >7,} / {n_cand: >7,} candidates tagged with GT in Wikidata KB")
-        print(f"{n_ne_bs: >7,} / {n_cand: >7,} candidates for named entities not in Wikidata KB")
+        print(f"{n_no_cand: >7,} / {n_ne: >7,} "
+              f"named entities have no candidates")
+        print(f"{n_no_pos_labels: >7,} / {n_ne: >7,} "
+              f"named entities where correct label is not among candidates")
+        print(f"{n_ne_in_kb: >7,} / {n_cand: >7,} "
+              f"candidates tagged with GT in Wikidata KB")
+        print(f"{n_ne_bs: >7,} / {n_cand: >7,} "
+              f"candidates for named entities not in Wikidata KB")
 
         print(f"{n_cand/n_ne:.1f} average number of candidates per entity")

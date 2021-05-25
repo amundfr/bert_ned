@@ -1,8 +1,8 @@
 """
 Author: Amund Faller Råheim
 
-This class takes a BERT model (e.g. BertBinaryClassification) and train, validation and test datasets
-and performs training and testing.
+This class takes a BERT model (e.g. BertBinaryClassification) and train,
+ validation and test datasets and performs training and testing.
 """
 
 import time
@@ -18,10 +18,12 @@ from torch.utils.data import DataLoader
 from src.evaluation import accuracy_over_mentions, accuracy_over_candidates
 from src.bert_model import save_bert_to_file
 
+
 def format_time(elapsed):
     """
-  Takes a time in seconds and returns a string hh:mm:ss
-  """
+    Takes a time in seconds and returns a string hh:mm:ss
+    :param elapsed: float seconds
+    """
     # Round to the nearest second.
     elapsed_rounded = int(round(elapsed))
 
@@ -30,12 +32,21 @@ def format_time(elapsed):
 
 
 class ModelTrainer:
-    def __init__(self,
-                 model: BertBinaryClassification,
-                 train_dataloader: DataLoader,
-                 validation_dataloader: DataLoader,
-                 test_dataloader: DataLoader,
-                 epochs: int = 3):
+    def __init__(
+                self,
+                model: BertBinaryClassification,
+                train_dataloader: DataLoader,
+                validation_dataloader: DataLoader,
+                test_dataloader: DataLoader,
+                epochs: int = 3
+            ):
+        """
+        :param model: a BertBinaryClassification model
+        :param train_dataloader: a torch dataloader for training data
+        :param validation_dataloader: a torch dataloader for validation data
+        :param test_dataloader: a torch dataloader for test data
+        :param epochs: number of training epochs
+        """
         self.model = model
 
         # Use Cuda if Cuda enabled GPU is available
@@ -64,7 +75,8 @@ class ModelTrainer:
 
         total_steps = len(self.train_dataloader) * self.epochs
 
-        # Create the learning rate scheduler. TODO: experiment! e.g. get_cosine_with_hard_restarts_schedule_with_warmup
+        # Create the learning rate scheduler.
+        # TODO: e.g. get_cosine_with_hard_restarts_schedule_with_warmup
         self.scheduler = get_cosine_schedule_with_warmup(
                 self.optimizer,
                 num_warmup_steps=0,  # warm start
@@ -102,7 +114,8 @@ class ModelTrainer:
             dataloader = self.test_dataloader
             torch.set_grad_enabled(False)
         else:
-            raise ValueError(f"type must be 'train', 'val' or 'test'. Was {run_type}.")
+            raise ValueError(f"type must be 'train', 'val' or 'test'. "
+                             f"Was {run_type}.")
 
         # For each batch of training data...
         for step, batch in enumerate(dataloader):
@@ -113,13 +126,19 @@ class ModelTrainer:
 
                 # Report progress.
                 print(f"  Batch {step:>5,}  of  {len(dataloader):>5,}.    "
-                      f"Elapsed: {elapsed:}.    Avg loss: {total_loss / step:.4f}")
+                      f"Elapsed: {elapsed:}.    "
+                      f"Avg loss: {total_loss / step:.4f}")
 
-            # Unpack this training batch from the dataloader and move to correct device
-            b_input_ids = batch[0].to(device=self.device, dtype=torch.long)
-            b_attention_mask = batch[1].to(device=self.device, dtype=torch.long)
-            b_token_type_ids = batch[2].to(device=self.device, dtype=torch.long)
-            b_labels = batch[3].to(device=self.device, dtype=torch.long)
+            # Unpack this training batch from the dataloader
+            #  and move to correct device
+            b_input_ids = \
+                batch[0].to(device=self.device, dtype=torch.long)
+            b_attention_mask = \
+                batch[1].to(device=self.device, dtype=torch.long)
+            b_token_type_ids = \
+                batch[2].to(device=self.device, dtype=torch.long)
+            b_labels = \
+                batch[3].to(device=self.device, dtype=torch.long)
 
             # Reset gradients
             self.model.zero_grad()
@@ -163,17 +182,25 @@ class ModelTrainer:
         epoch_duration = time.time()-t0
         return total_loss, epoch_duration, epoch_logits, epoch_labels
 
-    def train(self, train_update_freq: int = 50, validation_update_freq: int = 50, dataset_to_x: Tuple[List, List, List] = None):
+    def train(
+                self,
+                train_update_freq: int = 50,
+                validation_update_freq: int = 50,
+                dataset_to_x: Tuple[List, List, List] = None
+            ):
         """
-        :param train_update_freq: how many training batches to run before printing feedback
-        :param validation_update_freq: how many validation batches to run before printing feedback
+        :param train_update_freq: progress feedback frequency
+            in number of training batches
+        :param validation_update_freq: progress feedback frequency
+            in number of validation batches
         :param dataset_to_x: List of dataset_to_ doc/mention/candidate.
-            If provided, allows more accuracy accuracy.
+            If provided, prints more correct mention accuracy in validation.
+        :returns: training statistics
         """
-        # Holds some metrics on the duration and result of the training and validation
+        # Holds epoch metrics
         training_stats = []
 
-        # Measure the total training time for the whole run.
+        # Start time before epochs
         total_t0 = time.time()
 
         # If validation accuracy doesn't improve by more than this threshold,
@@ -182,7 +209,7 @@ class ModelTrainer:
 
         print(f"\n   Training starts at {time.ctime(total_t0)}\n")
 
-        # For each epoch...
+        # Iterate epochs
         for epoch_i in range(0, self.epochs):
 
             # Perform one full pass over the training set
@@ -191,7 +218,8 @@ class ModelTrainer:
             print("\nTraining...")
 
             # Measure how long the training epoch takes.
-            total_train_loss, training_duration, _, _ = self.run_epoch('train', train_update_freq)
+            total_train_loss, training_duration, _, _ = \
+                self.run_epoch('train', train_update_freq)
 
             save_bert_to_file(self.model, 'models')
 
@@ -208,23 +236,36 @@ class ModelTrainer:
 
             print("\nRunning Validation...")
 
-            total_eval_loss, eval_duration, val_logits, val_labels = self.run_epoch('val', validation_update_freq)
+            total_eval_loss, eval_duration, val_logits, val_labels = \
+                self.run_epoch('val', validation_update_freq)
 
             validation_duration = format_time(eval_duration)
             print()
 
             if dataset_to_x:
                 # Report the final accuracy for this validation run.
+                # Validation data starts after training data
                 valdata_start = len(self.train_dataloader.dataset.indices)
-                valdata_end = valdata_start + len(self.validation_dataloader.dataset.indices)
+                valdata_end = \
+                    valdata_start \
+                    + len(self.validation_dataloader.dataset.indices)
                 docs = dataset_to_x[0][valdata_start:valdata_end]
                 mentions = dataset_to_x[1][valdata_start:valdata_end]
                 candidates = dataset_to_x[2][valdata_start:valdata_end]
 
-                avg_mention_accuracy, _ = accuracy_over_mentions(val_logits, val_labels, docs, mentions, candidates)
+                avg_mention_accuracy, _ = accuracy_over_mentions(
+                        val_logits,
+                        val_labels,
+                        docs,
+                        mentions,
+                        candidates
+                    )
                 print(f"  Mention accuracy: {avg_mention_accuracy:.4f}")
 
-            avg_candidate_accuracy = accuracy_over_candidates(val_logits, val_labels)
+            avg_candidate_accuracy = accuracy_over_candidates(
+                    val_logits,
+                    val_labels
+                )
             print(f"  Sample accuracy: {avg_candidate_accuracy:.4f}")
 
             # Calculate the average loss over all of the batches.
@@ -247,16 +288,21 @@ class ModelTrainer:
 
             # Early stopping if validation loss doesn't improve sufficiently
             if epoch_i > 1:
-                delta_val_loss = training_stats[-2]['Valid. Loss'] - training_stats[-1]['Valid. Loss']
+                delta_val_loss = \
+                    training_stats[-2]['Valid. Loss'] \
+                    - training_stats[-1]['Valid. Loss']
 
                 if delta_val_loss < early_stopping_threshold:
-                    print(f"Triggering early stopping after {epoch_i + 1} epoch: "
-                          f"Validation loss change {delta_val_loss:.4} < threshold {early_stopping_threshold}")
+                    print(f"Triggering early stopping after "
+                          f"{epoch_i + 1} epoch: "
+                          f"Validation loss change {delta_val_loss:.4} "
+                          f"< threshold {early_stopping_threshold}")
                     break
 
         print("\nTraining complete!")
 
-        print(f"Total training took {format_time(time.time() - total_t0)} (h:mm:ss)")
+        print(f"Total training took "
+              f"{format_time(time.time() - total_t0)} (h:mm:ss)")
 
         stats_h1 = "      Training            |    Validation"
         stats_h2 = "Epoch |   Time   |  Loss  |   Time   |  Loss  | Accuracy "
@@ -269,13 +315,21 @@ class ModelTrainer:
         print('_' * len(stats_h2))
 
         for s in training_stats:
-            print(stats_fs.format(s['epoch'], s['Training Time'], s['Training Loss'],
-                  s['Validation Time'], s['Valid. Loss'], s['Valid. Accur.']))
+            print(stats_fs.format(
+                    s['epoch'], s['Training Time'], s['Training Loss'],
+                    s['Validation Time'], s['Valid. Loss'], s['Valid. Accur.']
+                ))
 
         return training_stats
 
-    def test(self, dataset_to_doc: List, dataset_to_mention: List, test_update_freq: int = 50,
-             dataset_to_candidate: List = None, result_file: str = 'data/evaluation_result.csv'):
+    def test(
+                self,
+                dataset_to_doc: List,
+                dataset_to_mention: List,
+                test_update_freq: int = 50,
+                dataset_to_candidate: List = None,
+                result_file: str = 'data/evaluation_result.csv'
+            ):
         """
         Evaluate the model with the test dataset.
         Relies on mappings from data point to documents and mentions
@@ -287,7 +341,8 @@ class ModelTrainer:
             for all datasets (not just training data).
         :param dataset_to_mention: A list of mention "IDs"
             for all datasets (not just training data).
-        :param test_update_freq: how many batches to run before printing feedback
+        :param test_update_freq: progress feedback frequency
+            in number of test batches
         :param dataset_to_candidate: A list of candidates
             for all datasets (not just training data).
             If provided, enters a very verbose state, printing
@@ -297,18 +352,22 @@ class ModelTrainer:
         """
         print("Running Testing...")
 
-        total_loss, test_duration, preds, labels = self.run_epoch('test', test_update_freq)
+        total_loss, test_duration, preds, labels = \
+            self.run_epoch('test', test_update_freq)
 
         testdata_start = len(self.train_dataloader.dataset.indices) + \
             len(self.validation_dataloader.dataset.indices)
         docs = dataset_to_doc[testdata_start:testdata_start+len(labels)]
-        mentions = dataset_to_mention[testdata_start:testdata_start+len(labels)]
+        mentions = \
+            dataset_to_mention[testdata_start:testdata_start+len(labels)]
         candidates = None
         if dataset_to_candidate:
-            candidates = dataset_to_candidate[testdata_start:testdata_start+len(labels)]
+            candidates = \
+                dataset_to_candidate[testdata_start:testdata_start+len(labels)]
 
         # Average accuracy over mentions (uses full test dataset)
-        avg_accuracy, result_str = accuracy_over_mentions(preds, labels, docs, mentions, candidates)
+        avg_accuracy, result_str = \
+            accuracy_over_mentions(preds, labels, docs, mentions, candidates)
 
         if result_str:
             if result_file:
@@ -317,7 +376,8 @@ class ModelTrainer:
                     print(f"\nWriting results to file {result_file}\n")
                     print(result_str, file=open(result_file, 'w'))
                 else:
-                    print(f"\nCould not print to {result_file}. Could not find parent directory {result_dir}.")
+                    print(f"\nCould not print to {result_file}. "
+                          f"Could not find parent directory {result_dir}.")
             else:
                 print(result_str)
 

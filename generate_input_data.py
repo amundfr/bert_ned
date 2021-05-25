@@ -18,15 +18,20 @@ if __name__ == '__main__':
         )
 
     candidate_info_path = config['DATA']['Candidate Info']
-    
-    print(f"\n 3.a Trying to read candidate info file at '{candidate_info_path}'")
+
+    print(f"\n 3.a Trying to read candidate info file at "
+          f"'{candidate_info_path}'")
     docs_entities = []
     try:
-        docs_entities = candidate_generator.read_entities_info(config['DATA']['Candidate Info'])
+        docs_entities = \
+            candidate_generator.read_entities_info(
+                    config['DATA']['Candidate Info']
+                )
     except FileNotFoundError:
         print(" Could not find candidate info.")
         conll_file = config['DATA']['Conll Annotated']
-        print(f"\n 3.b Generating candidates for annotated CoNLL file at '{conll_file}'")
+        print(f"\n 3.b Generating candidates for annotated CoNLL file "
+              f"at '{conll_file}'")
         docs_entities = candidate_generator.get_docs_entities(conll_file)
         print(f"\n 3.c Writing candidate info to file '{candidate_info_path}'")
         candidate_generator.write_entities_info(candidate_info_path)

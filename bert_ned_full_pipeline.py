@@ -8,7 +8,7 @@ from src.dataset_generator import DatasetGenerator
 from src.bert_model import BertBinaryClassification, load_bert_from_file, \
     save_bert_to_file
 from src.trainer import ModelTrainer
-from src.evaluation import plot_training_stats, read_result_and_evaluate
+from src.evaluation import plot_training_stats
 
 import torch
 import numpy as np
@@ -29,12 +29,13 @@ torch.cuda.manual_seed_all(seed_val)
 # Wrapper function to time executions
 def timer(func):
     def wrapper(*args, **kwargs):
-        print(f"----\n  Timing function ...\n----")
+        print("----\n  Timing function ...\n----")
         t0 = time.time()
         res = func(*args, **kwargs)
         t1 = time.time()
         d_t_str = time.strftime("%H:%M:%S hh:mm:ss", time.gmtime(t1-t0))
-        print(f"----\n  Function ran from {time.ctime(t0)} to {time.ctime(t1)}")
+        print(f"----\n  Function ran from "
+              f"{time.ctime(t0)} to {time.ctime(t1)}")
         print(f"  Took: {d_t_str}\n----")
         return res
     return wrapper
@@ -50,7 +51,8 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument(
         "-r", "--read_input_data", action="store_true",
-        help="whether to use paths in 'config.ini' to read previously generated input data"
+        help="whether to use paths in 'config.ini' "
+             "to read previously generated input data"
     )
 
 parser.add_argument(
@@ -60,7 +62,8 @@ parser.add_argument(
 
 parser.add_argument(
         "-m", "--new_model", action="store_true",
-        help="get pretrained model from Huggingface, and do not read model from disk"
+        help="get pretrained model from Huggingface, "
+             "and do not read model from disk"
     )
 
 
@@ -78,10 +81,16 @@ def candidate_generation():
         )
 
     if args.read_input_data:
-        candidate_generator.read_entities_info(config['DATA']['Candidate Info'])
+        candidate_generator.read_entities_info(
+                config['DATA']['Candidate Info']
+            )
     else:
-        docs_entities = candidate_generator.get_docs_entities(config['DATA']['Conll Annotated'])
-        candidate_generator.write_entities_info(config['DATA']['Candidate Info'])
+        docs_entities = candidate_generator.get_docs_entities(
+                config['DATA']['Conll Annotated']
+            )
+        candidate_generator.write_entities_info(
+                config['DATA']['Candidate Info']
+            )
 
     candidate_generator.print_candidate_stats()
 
@@ -91,9 +100,11 @@ def candidate_generation():
     del candidate_generator
     return docs_entities, docs
 
+
 print(' 1. Candidate generation ...')
 docs_entities, docs = candidate_generation()
 print('  ... Candidate generation done!')
+
 
 # -- Generate input vectors from CoNLL docs and Wikipedia abstracts -----------
 
@@ -115,6 +126,7 @@ def input_data_generation():
     del input_data_generator
     return input_vectors
 
+
 input_vectors = None
 if args.read_input_data:
     print(' 2. Input data generation ... Skipping!')
@@ -129,8 +141,10 @@ else:
 
 @timer
 def dataset_generation():
-    # read_input = config.getboolean('INPUT VECTORS', 'Read Input Vectors From Dir')
-    use_balanced_dataset = config.getboolean('INPUT VECTORS', 'Use Balanced Dataset')
+    use_balanced_dataset = config.getboolean(
+            'INPUT VECTORS',
+            'Use Balanced Dataset'
+        )
 
     # Recommended CoNLL split, reverse engineered to ratios.
     split_ratios = [0.6799, 0.1557, 0.1644]
@@ -159,11 +173,17 @@ def dataset_generation():
             n_neg_samples = config['INPUT VECTORS']['N Negative Samples']
             n_neg_samples = int(n_neg_samples) if n_neg_samples else 1
 
-            print(f"Generating balanced dataset with ratio 1:{n_neg_samples} ...")
-            dataset_generator.get_balanced_dataset(docs_entities, n_neg_samples)
+            print(f"Generating balanced dataset with "
+                  f"ratio 1:{n_neg_samples} ...")
+            dataset_generator.get_balanced_dataset(
+                    docs_entities,
+                    n_neg_samples
+                )
             if balanced_dataset_dir:
                 print("Writing balanced dataset to files ...")
-                dataset_generator.write_balanced_dataset_to_files(balanced_dataset_dir)
+                dataset_generator.write_balanced_dataset_to_files(
+                        balanced_dataset_dir
+                    )
         print("Splitting dataset ...")
         dataset_generator.get_split_dataset(split_ratios, dataset='balanced')
 
@@ -185,22 +205,29 @@ def dataset_generation():
                 print("\nERROR: Got no vectors!")
                 exit()
         print("Splitting dataset ...")
-        dataset_generator.get_split_dataset(split_ratios, dataset='full', docs_entities=docs_entities)
+        dataset_generator.get_split_dataset(
+                split_ratios,
+                dataset='full',
+                docs_entities=docs_entities
+            )
 
-        dataset_to_doc, dataset_to_mention, dataset_to_candidate = dataset_generator.get_dataset_to_x(docs_entities)
+        dataset_to_doc, dataset_to_mention, dataset_to_candidate = \
+            dataset_generator.get_dataset_to_x(docs_entities)
 
     print("Getting DataLoaders ...")
     train_loader, val_loader, test_loader = \
-        dataset_generator.get_data_loaders(batch_size=int(config['TRAINING']['Batch Size']))
+        dataset_generator.get_data_loaders(
+                batch_size=int(config['TRAINING']['Batch Size'])
+            )
     neg, pos = dataset_generator.get_dataset_balance_info()
-    return train_loader, val_loader, test_loader, dataset_to_doc, dataset_to_mention, dataset_to_candidate, pos, neg
+    return train_loader, val_loader, test_loader, dataset_to_doc, \
+        dataset_to_mention, dataset_to_candidate, pos, neg
 
 
 print(' 3. Data loader generation ...')
-train_loader, val_loader, test_loader, \
-    dataset_to_doc, dataset_to_mention, dataset_to_candidate, \
-        pos, neg \
-            = dataset_generation()
+train_loader, val_loader, test_loader, dataset_to_doc, \
+    dataset_to_mention, dataset_to_candidate, pos, neg = dataset_generation()
+
 print('  ... Data loader generation done!')
 
 
@@ -212,16 +239,22 @@ def model_generation():
     model_dir = config['BERT']['Bert Model Dir']
     if not model_dir or args.new_model:
         model_path = config['BERT']['Model ID']
-        model = BertBinaryClassification.from_pretrained(model_path, use_cls=False)
+        model = BertBinaryClassification.from_pretrained(
+                model_path
+            )
     else:
         model = load_bert_from_file(model_dir)
 
     freeze_n_transformers = config['TRAINING']['Freeze N Transformers']
-    freeze_n_transformers = int(freeze_n_transformers) if freeze_n_transformers else 12
+    if freeze_n_transformers:
+        freeze_n_transformers = int(freeze_n_transformers)
+    else:
+        freeze_n_transformers = 12
     model.freeze_n_transformers(freeze_n_transformers)
     print(f" pos:neg = {pos}:{neg}")
     model.set_class_weights(neg/pos * torch.ones([1]))
     return model
+
 
 print(' 4. Model generation ...')
 model = model_generation()
@@ -237,30 +270,43 @@ def training():
     save_dir = config['BERT']['Save Model Dir']
 
     train_update_freq = int(config['VERBOSITY']['Training Update Frequency'])
-    validation_update_freq = int(config['VERBOSITY']['Validation Update Frequency'])
+    validation_update_freq = int(
+            config['VERBOSITY']['Validation Update Frequency']
+        )
     test_update_freq = int(config['VERBOSITY']['Test Update Frequency'])
 
     train = bool(epochs > 0 and not args.evaluate)
-    # try:
-    #     read_result_and_evaluate()
-    # except FileNotFoundError as e:
-    #     print(e)
-    #     print("Continuing to train and test procedure.")
-    #     train = True
 
-    handler = ModelTrainer(model, train_loader, val_loader, test_loader, epochs)
+    handler = ModelTrainer(
+            model,
+            train_loader,
+            val_loader,
+            test_loader,
+            epochs
+        )
+
     if train:
-        dataset_to_x = (dataset_to_doc, dataset_to_mention, dataset_to_candidate)
-        training_stats = handler.train(train_update_freq, validation_update_freq, dataset_to_x)
+        dataset_to_x = (
+                dataset_to_doc,
+                dataset_to_mention,
+                dataset_to_candidate
+            )
+        training_stats = handler.train(
+                train_update_freq,
+                validation_update_freq,
+                dataset_to_x
+            )
         if save_dir:
             save_bert_to_file(model, save_dir)
         if len(training_stats) > 1:
-            # if save_dir:
-            #     plot_training_stats(training_stats, save_dir)
-            # else:
             plot_training_stats(training_stats)
-    
-    handler.test(dataset_to_doc, dataset_to_mention, test_update_freq, dataset_to_candidate)
+
+    handler.test(
+            dataset_to_doc,
+            dataset_to_mention,
+            test_update_freq,
+            dataset_to_candidate
+        )
 
 
 print(' 5. Training ...')

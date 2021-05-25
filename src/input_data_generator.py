@@ -22,9 +22,15 @@ from lib.wel_minimal.conll_benchmark import ConllDocument
 
 
 class InputDataGenerator:
-    def __init__(self,
-                 wikipedia_abstracts_file: str = 'wikidata-wikipedia.tsv',
-                 tokenizer_pretrained_id: str = 'bert-base-uncased'):
+    def __init__(
+                self,
+                wikipedia_abstracts_file: str = 'wikidata-wikipedia.tsv',
+                tokenizer_pretrained_id: str = 'bert-base-uncased'
+            ):
+        """
+        :param wikipedia_abstracts_file: path to file with Wikipedia abstracts
+        :param tokenizer_pretrained_id: the URI of the Huggingface tokenizer
+        """
         self.wikipedia_abstracts_file = wikipedia_abstracts_file
         self.wikipedia_abstracts = {}
 
@@ -39,26 +45,37 @@ class InputDataGenerator:
         self.sep_id = self.tokenizer.convert_tokens_to_ids('[SEP]')
         self.pad_id = self.tokenizer.convert_tokens_to_ids('[PAD]')
 
-    def read_wikipedia_abstracts(self, f: str = ''):
-        if not self.wikipedia_abstracts_file and not f:
-            print("Must provide a wikipedia abstracts file either when initializing"
-                  " or when calling read_wikipedia_abstracts.")
+    def read_wikipedia_abstracts(self, file: str = ''):
+        """
+        Read Wikipedia abstracts from .tsv file,
+         and save to self.wikipedia_abstracts
+        :param file: path to file with wikipedia abstracts.
+            Overrides self.wikipedia_abstracts_file from initialization
+        :returns: 1 if success, 0 otherwise
+        """
+        if not self.wikipedia_abstracts_file and not file:
+            print("Must provide a wikipedia abstracts file either when "
+                  "initializing or when calling read_wikipedia_abstracts.")
             return 0
-        elif not isfile(f) and not isfile(self.wikipedia_abstracts_file):
+        elif not isfile(file) and not isfile(self.wikipedia_abstracts_file):
             print("Can't find wikipedia abstracts file.")
             return 0
-        elif isfile(f):
-            self.wikipedia_abstracts_file = f
+        elif isfile(file):
+            self.wikipedia_abstracts_file = file
 
         print("Reading Wikipedia Abstracts File...", end='')
         for line in open(self.wikipedia_abstracts_file, 'r'):
             values = line[:-1].split('\t')
-            self.wikipedia_abstracts[values[0]] = (values[1], values[2].strip())
+            self.wikipedia_abstracts[values[0]] = \
+                (values[1], values[2].strip())
         print("Done!")
 
         return 1
 
     def get_wikipedia_abstracts(self):
+        """
+        :returns: self.wikipedia_abstracts, reading from file if not loaded
+        """
         if self.wikipedia_abstracts == {}:
             success = self.read_wikipedia_abstracts()
             if not success:
@@ -66,10 +83,12 @@ class InputDataGenerator:
                 return
         return self.wikipedia_abstracts
 
-    def get_vectorized_data(self,
-                            document: ConllDocument,
-                            doc_entities: List,
-                            max_len: int = 512):
+    def get_vectorized_data(
+                self,
+                document: ConllDocument,
+                doc_entities: List,
+                max_len: int = 512
+            ):
         """
         Function yields the three input vectors to BERT
         for a given CoNLL document with a doc_entities list,
@@ -81,7 +100,7 @@ class InputDataGenerator:
         :param document: a ConllDocument object
         :param doc_entities: a list of dicts
         :param max_len: maximum length of a returned vector
-        :returns: Tuple of: Three tensors with input_ids, attention_mask, 
+        :yields: Tuple of: Three tensors with input_ids, attention_mask,
                     token_type_ids, and a boolean label
         """
         input_ids = []
@@ -119,13 +138,19 @@ class InputDataGenerator:
                 label = True if candidate == gt else False
 
                 # Max number of tokens for the abstract context.
-                # Half of the total length, excluding two [SEP] and one [CLS] tokens
+                # Half of the total length,
+                #  excluding two [SEP] and one [CLS] tokens
                 max_cand_len = floor((max_len - 3) / 2)
 
                 # Start with the candidate title
                 cand_context = wikipedia_abstracts[candidate][0]
-                # Add a truncated part of the abstract (faster for very long abstracts)
-                cand_context += ' ' + ' '.join(wikipedia_abstracts[candidate][1].split(' ')[:int(max_cand_len*1.5)])
+                # Add a truncated part of the abstract
+                #  (faster for very long abstracts)
+                cand_context += ' ' + ' '.join(
+                        wikipedia_abstracts[candidate][1].split(' ')[
+                                :int(max_cand_len*1.5)
+                            ]
+                    )
                 # Tokenize with truncation
                 cand_tokens = self.tokenizer.encode(
                                     cand_context,
@@ -141,14 +166,16 @@ class InputDataGenerator:
                         add_special_tokens=False,
                         is_split_into_words=True
                     )
-                max_context_len = max_len - 3 - len(cand_tokens) - len(ne_tokenized)
+                max_context_len = max_len - 3 - \
+                    len(cand_tokens) - len(ne_tokenized)
 
                 # Make sure we get at least some words after the token
                 start = max(0, entity_span[1] + 15 - max_context_len)
                 end = start + max_context_len
                 entity_tokens = ne_tokenized + doc_tokenized[start:end]
 
-                input_ids = [self.cls_id] + entity_tokens + [self.sep_id] + cand_tokens + [self.sep_id]
+                input_ids = [self.cls_id] + entity_tokens + \
+                    [self.sep_id] + cand_tokens + [self.sep_id]
 
                 pad_len = max_len - len(input_ids)
 
@@ -156,22 +183,26 @@ class InputDataGenerator:
 
                 input_ids += [self.pad_id] * pad_len
 
-                token_type_ids = [0] * (2 + len(entity_tokens)) + [1] * (1 + len(cand_tokens)) + [0] * pad_len
+                token_type_ids = [0] * (2 + len(entity_tokens)) + \
+                    [1] * (1 + len(cand_tokens)) + [0] * pad_len
 
-                # Save in minimal format. Will need to be recast to torch.long for BERT
+                # Save in minimal format. Must be recast to torch.long for BERT
                 input_ids = ShortTensor(input_ids).unsqueeze(0)
                 attention_mask = BoolTensor(attention_mask).unsqueeze(0)
                 token_type_ids = BoolTensor(token_type_ids).unsqueeze(0)
 
                 yield input_ids, attention_mask, token_type_ids, label
 
-    def generate_for_conll_data(self,
-                                docs: List,
-                                docs_entities: List,
-                                max_len: int = 512,
-                                progress: bool = False):
+    def generate_for_conll_data(
+                self,
+                docs: List,
+                docs_entities: List,
+                max_len: int = 512,
+                progress: bool = False
+            ):
         """
-        Generates tokenized BERT input vectors for input documents and entity info
+        Generates tokenized BERT input vectors
+        for input documents and entity info
 
         :param docs: a list of ConllDocuments, obtained
             from ConllCandidatesGenerator's
@@ -179,6 +210,7 @@ class InputDataGenerator:
             from ConllCandidatesGenerator's get_docs_entities()
         :param max_len: maximum length of tokenized input
         :param progress: print progress
+        :returns: Tuple of four torch.Tensor
         """
         data = []
         t0 = time.time()
@@ -187,10 +219,21 @@ class InputDataGenerator:
         for i_doc, doc_tuple in enumerate(zip(docs, docs_entities)):
             if progress and (not i_doc == 0) and (i_doc % (n / 20) <= 1):
                 s_left = (n - i_doc) * (time.time() - t0) / i_doc
-                print(f"Progress: {i_doc:>6} / {n:} ({i_doc / n * 100: >4.1f} %)" +
-                      f" time left: {s_left / 3600:.0f}:{(s_left % 3600) / 60:02.0f}:{s_left % 60:02.0f} hh:mm:ss", end='\r')
+                print(
+                        f"Progress: {i_doc:>6} / {n:} "
+                        f"({i_doc / n * 100: >4.1f} %)"
+                        f" time left: "
+                        f"{s_left / 3600:.0f}"
+                        f":{(s_left % 3600) / 60:02.0f}"
+                        f":{s_left % 60:02.0f} hh:mm:ss",
+                        end='\r'
+                    )
 
-            for vectors in self.get_vectorized_data(doc_tuple[0], doc_tuple[1], max_len):
+            for vectors in self.get_vectorized_data(
+                        doc_tuple[0],
+                        doc_tuple[1],
+                        max_len
+                    ):
                 assert len(vectors) == 4
                 data.append(vectors)
 
