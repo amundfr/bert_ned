@@ -211,6 +211,7 @@ class ModelTrainer:
             total_eval_loss, eval_duration, val_logits, val_labels = self.run_epoch('val', validation_update_freq)
 
             validation_duration = format_time(eval_duration)
+            print()
 
             if dataset_to_x:
                 # Report the final accuracy for this validation run.
@@ -224,7 +225,7 @@ class ModelTrainer:
                 print(f"  Mention accuracy: {avg_mention_accuracy:.4f}")
 
             avg_candidate_accuracy = accuracy_over_candidates(val_logits, val_labels)
-            print(f"  Accuracy: {avg_candidate_accuracy:.4f}")
+            print(f"  Sample accuracy: {avg_candidate_accuracy:.4f}")
 
             # Calculate the average loss over all of the batches.
             avg_val_loss = total_eval_loss / len(self.validation_dataloader)

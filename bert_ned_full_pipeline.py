@@ -58,6 +58,12 @@ parser.add_argument(
         help="no training, only evaluate model read from path in 'config.ini'"
     )
 
+parser.add_argument(
+        "-m", "--new_model", action="store_true",
+        help="get pretrained model from Huggingface, and do not read model from disk"
+    )
+
+
 args = parser.parse_args()
 print(f"args: {args}")
 
@@ -168,9 +174,16 @@ def dataset_generation():
     else:
         vec_dir = config['INPUT VECTORS']['Input Vectors Dir']
         # Reading previously generated dataset from file
-        if args.read_input_data and vec_dir:
-            print("Reading vectors ...")
-            dataset_generator.read_from_directory(vec_dir)
+        if vec_dir:
+            if args.read_input_data:
+                print("Reading vectors ...")
+                dataset_generator.read_from_directory(vec_dir)
+            elif input_vectors:
+                print(f"Writing vectors to directory {vec_dir} ...")
+                dataset_generator.write_to_files(vec_dir)
+            else:
+                print("\nERROR: Got no vectors!")
+                exit()
         print("Splitting dataset ...")
         dataset_generator.get_split_dataset(split_ratios, dataset='full', docs_entities=docs_entities)
 
@@ -197,11 +210,11 @@ print('  ... Data loader generation done!')
 @timer
 def model_generation():
     model_dir = config['BERT']['Bert Model Dir']
-    if model_dir:
-        model = load_bert_from_file(model_dir)
-    else:
+    if not model_dir or args.new_model:
         model_path = config['BERT']['Model ID']
         model = BertBinaryClassification.from_pretrained(model_path, use_cls=False)
+    else:
+        model = load_bert_from_file(model_dir)
 
     freeze_n_transformers = config['TRAINING']['Freeze N Transformers']
     freeze_n_transformers = int(freeze_n_transformers) if freeze_n_transformers else 12
