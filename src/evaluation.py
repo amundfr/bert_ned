@@ -146,9 +146,9 @@ def read_result_and_evaluate(file: str = 'data/evaluation_result.csv'):
 
 def plot_training_stats(training_stats, save_to_dir: str = None):
     """
-    Plot training statistics. 
+    Plot training statistics.
     Specifically, loss over epochs and accuracy over epochs
-    
+
     :param training_stats: data returned from ModelTrainer after training
     :param save_to_dir: if provided, the plots are saved to this destination
     """

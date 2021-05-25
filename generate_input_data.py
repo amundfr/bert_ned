@@ -1,3 +1,10 @@
+"""
+Author: Amund Faller Råheim
+
+Script to generate input data and write to file.
+Allows shortcuts when running bert_ned_full_pipeline.py
+"""
+
 from configparser import ConfigParser
 from src.conll_candidates_generator import ConllCandidatesGenerator
 from src.input_data_generator import InputDataGenerator

@@ -1,3 +1,15 @@
+"""
+Author: Amund Faller Råheim
+
+Script to run full pipeline:
+ * candidate generation,
+ * input data generation,
+ * training and
+ * evaluation
+
+Configurable through config.ini and commandline arguments
+"""
+
 from configparser import ConfigParser
 import argparse
 import time
