@@ -102,7 +102,7 @@ def accuracy_over_candidates(preds, labels):
     :param labels: the correct true/false labels for each data point
     :returns: a scalar accuracy for this batch, averaged over candidates
     """
-    pred_classes = np.argmax(preds, axis=1).flatten()
+    pred_classes = preds.flatten() > 0
     return np.sum(pred_classes == labels.flatten()) / len(labels)
 
 
